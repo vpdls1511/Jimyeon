@@ -1,0 +1,95 @@
+{
+  "format": "local-notion-editor",
+  "version": 2,
+  "title": "지면 시작하기",
+  "paper": "A4",
+  "fontSize": 12,
+  "titleFontSize": 30,
+  "pageNumber": "center",
+  "blocks": [
+    {
+      "id": "welcome",
+      "type": "paragraph",
+      "content": "블록으로 구성하고, 페이지로 완성하는 문서 에디터입니다."
+    },
+    {
+      "id": "heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "content": "자유롭게 구성하세요"
+    },
+    {
+      "id": "layout",
+      "type": "columnList",
+      "children": [
+        {
+          "id": "left",
+          "type": "column",
+          "props": {
+            "width": 1
+          },
+          "children": [
+            {
+              "id": "left-title",
+              "type": "heading",
+              "props": {
+                "level": 3
+              },
+              "content": "문서 편집"
+            },
+            {
+              "id": "left-text",
+              "type": "paragraph",
+              "content": "빈 줄에서 /를 입력해 제목, 목록, 이미지, 표 등을 추가하세요."
+            }
+          ]
+        },
+        {
+          "id": "right",
+          "type": "column",
+          "props": {
+            "width": 1
+          },
+          "children": [
+            {
+              "id": "right-title",
+              "type": "heading",
+              "props": {
+                "level": 3
+              },
+              "content": "페이지 확인"
+            },
+            {
+              "id": "right-text",
+              "type": "paragraph",
+              "content": "상단에서 용지와 여백을 조절하고 페이지가 나뉘는 위치를 확인하세요."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "divider",
+      "type": "divider",
+      "props": {
+        "textColor": "green",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "tip",
+      "type": "callout",
+      "props": {
+        "icon": "💡"
+      },
+      "content": "블록 왼쪽 손잡이의 메뉴에서 가로 배치, 색상, 복제 등을 사용할 수 있습니다."
+    },
+    {
+      "id": "save",
+      "type": "paragraph",
+      "content": "완성한 문서는 문서 저장으로 백업하고, PDF 저장으로 내보내세요."
+    }
+  ]
+}

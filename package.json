@@ -1,0 +1,119 @@
+{
+  "name": "jimyeon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local-first document editor with flexible blocks, live A4/A3 pages, and PDF export that matches your layout.",
+  "author": "vpdls1511",
+  "repository": {"type": "git", "url": "git+https://github.com/vpdls1511/Jimyeon.git"},
+  "homepage": "https://github.com/vpdls1511/Jimyeon#readme",
+  "bugs": {"url": "https://github.com/vpdls1511/Jimyeon/issues"},
+  "engines": {"node": ">=22.12.0"},
+  "main": "electron/main.cjs",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "build": "node scripts/collect-licenses.mjs && vite build",
+    "preview": "node server.mjs",
+    "test": "vitest run",
+    "start": "node server.mjs --open",
+    "app": "npm run build && electron .",
+    "app:pack": "npm run build && electron-builder --dir --publish never",
+    "app:dist": "npm run build && electron-builder --publish never",
+    "app:dist:mac": "npm run build && electron-builder --mac dmg zip --publish never",
+    "app:dist:win": "npm run build && electron-builder --win nsis zip --x64 --config.compression=normal --publish never",
+    "app:verify": "node scripts/verify-package.mjs"
+  },
+  "build": {
+    "appId": "me.ngyu.resume-editor",
+    "productName": "Jimyeon",
+    "executableName": "Jimyeon",
+    "asar": true,
+    "electronLanguages": [
+      "ko",
+      "en"
+    ],
+    "compression": "maximum",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release",
+      "buildResources": "electron/resources"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*.cjs",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "THIRD_PARTY_LICENSES.txt",
+      "!node_modules/**/*"
+    ],
+    "mac": {
+      "icon": "electron/resources/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"],
+      "artifactName": "Jimyeon-${version}-macOS-${arch}.${ext}",
+      "identity": "-",
+      "entitlements": "electron/resources/entitlements.mac.plist",
+      "entitlementsInherit": "electron/resources/entitlements.mac.plist"
+    },
+    "win": {
+      "icon": "electron/resources/icon.ico",
+      "target": [{"target": "nsis", "arch": ["x64"]}, {"target": "zip", "arch": ["x64"]}],
+      "artifactName": "Jimyeon-${version}-Windows-${arch}.${ext}",
+      "signExecutable": false
+    },
+    "nsis": {
+      "artifactName": "Jimyeon-${version}-Windows-${arch}-Setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "지면",
+      "installerLanguages": ["ko_KR", "en_US"]
+    },
+    "dmg": {
+      "title": "지면 · Jimyeon",
+      "backgroundColor": "#f7f7f5",
+      "format": "ULFO",
+      "contents": [
+        {
+          "x": 150,
+          "y": 170
+        },
+        {
+          "x": 440,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "artifactName": "Jimyeon-${version}-${arch}.${ext}"
+  },
+  "dependencies": {
+    "@blocknote/code-block": "0.56.0",
+    "@blocknote/core": "0.56.0",
+    "@blocknote/mantine": "0.56.0",
+    "@blocknote/react": "0.56.0",
+    "@blocknote/xl-multi-column": "0.56.0",
+    "@mantine/core": "^8.3.0",
+    "@mantine/hooks": "^8.3.0",
+    "idb": "^8.0.3",
+    "katex": "^0.16.22",
+    "lucide-react": "^0.468.0",
+    "pagedjs": "^0.4.3",
+    "puppeteer-core": "^25.14.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "electron": "44.9.0",
+    "electron-builder": "26.15.3",
+    "fake-indexeddb": "^6.2.6",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "vitest": "^3.2.7"
+  }
+}

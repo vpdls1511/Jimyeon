@@ -1,0 +1,20 @@
+node_modules/
+dist/
+release/
+release-*/
+tmp/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+*.pdf
+*.notion.json
+*.jimyeon
+!examples/*.jimyeon
+# Internal QA notes and screenshots can contain personal documents.
+VERIFICATION.md
+docs/*.png
+!docs/divider-opacity.png
+# Generated from installed dependency licenses during the build.
+THIRD_PARTY_LICENSES.txt

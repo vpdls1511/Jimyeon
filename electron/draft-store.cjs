@@ -1,0 +1,43 @@
+const path = require('node:path');
+const fs = require('node:fs/promises');
+const {createHash} = require('node:crypto');
+const {serializeDraft, atomicWrite} = require('./files.cjs');
+
+// Serialize writes, retain only a small digest, and leave identical saves on disk.
+function createDraftStore(folder, write = atomicWrite) {
+  const current = path.join(folder, 'document.json');
+  const previous = path.join(folder, 'document.previous.json');
+  let chain = Promise.resolve(), savedHash, primaryValid = false;
+  const digest = text => createHash('sha256').update(text).digest('hex');
+  async function read(file) {
+    const doc = JSON.parse(await fs.readFile(file, 'utf8'));
+    serializeDraft(doc);
+    return doc;
+  }
+  return {
+    async load() {
+      try {
+        const doc = await read(current);
+        savedHash = digest(serializeDraft(doc)); primaryValid = true;
+        return doc;
+      } catch (error) {
+        primaryValid = false;
+        if (error.code === 'ENOENT') return null;
+        try { return await read(previous); }
+        catch { throw Error('자동 저장 문서를 읽지 못했습니다. 저장된 문서 파일을 가져와 주세요.'); }
+      }
+    },
+    save(doc) {
+      const text = serializeDraft(doc), hash = digest(text);
+      chain = chain.catch(() => {}).then(async () => {
+        if (primaryValid && hash === savedHash) return;
+        if (primaryValid) await fs.copyFile(current, previous);
+        await write(current, text);
+        savedHash = hash; primaryValid = true;
+      });
+      return chain;
+    }
+  };
+}
+
+module.exports = {createDraftStore};
