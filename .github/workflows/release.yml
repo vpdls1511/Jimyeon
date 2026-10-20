@@ -1,6 +1,8 @@
 name: Desktop release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -11,7 +13,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: Check whether this version needs a release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - id: version
+        run: node scripts/prepare-release.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   build:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     name: Build ${{ matrix.platform }} ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -64,7 +86,7 @@ jobs:
           retention-days: 7
 
   draft-release:
-    name: Collect all platforms into one draft release
+    name: Verify uploads and publish release
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -82,7 +104,8 @@ jobs:
           pattern: installers-*
           path: release-assets
           merge-multiple: true
-      - name: Upload all builds and checksums
+      - name: Upload, verify checksums and publish
         run: node scripts/create-release.mjs
         env:
           GH_TOKEN: ${{ github.token }}
+          PUBLISH_RELEASE: ${{ github.event_name == 'push' }}
