@@ -31,6 +31,14 @@ function safeName(name, fallback = '문서') {
   return String(name || fallback).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 160) || fallback;
 }
 
+function saveFileOptions(file) {
+  if (!file || !(file.bytes instanceof Uint8Array) || file.bytes.byteLength > MAX_DOCUMENT_BYTES || !['application/json', 'text/markdown'].includes(file.type)) throw Error('저장할 문서를 확인해 주세요.');
+  const extension = file.type === 'text/markdown' ? 'md' : /\.json$/i.test(file.name) ? 'json' : 'jimyeon';
+  const name = safeName(file.name);
+  return {defaultPath: name.toLowerCase().endsWith('.' + extension) ? name : name + '.' + extension,
+    filters: [{name: extension === 'md' ? '마크다운' : extension === 'json' ? '지면 JSON 문서' : '지면 문서', extensions: [extension]}]};
+}
+
 function externalURL(value) {
   try {
     const url = new URL(value);
@@ -63,4 +71,4 @@ async function resolveImage(value) {
   return {bytes: Buffer.concat(chunks), type};
 }
 
-module.exports = {bundlePath, validatePDF, serializeDraft, safeName, externalURL, atomicWrite, resolveImage, MAX_DOCUMENT_BYTES};
+module.exports = {bundlePath, validatePDF, serializeDraft, safeName, saveFileOptions, externalURL, atomicWrite, resolveImage, MAX_DOCUMENT_BYTES};
