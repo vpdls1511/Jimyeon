@@ -4,8 +4,8 @@ import {createHash} from 'node:crypto';
 const state=vi.hoisted(()=>({files:new Map(),calls:[],draft:true,badDigest:false}));
 const commit='a'.repeat(40),apiUrl='https://api.github.com/repos/owner/repo/releases/123';
 vi.mock('node:fs/promises',()=>{const mock={
- readFile:vi.fn(async file=>{if(!state.files.has(file))throw Error('Missing fixture: '+file);return state.files.get(file)}),
- writeFile:vi.fn(async(file,bytes)=>state.files.set(file,bytes)),
+ readFile:vi.fn(async file=>{const key=String(file).replaceAll('\\','/');if(!state.files.has(key))throw Error('Missing fixture: '+file);return state.files.get(key)}),
+ writeFile:vi.fn(async(file,bytes)=>state.files.set(String(file).replaceAll('\\','/'),bytes)),
 };return {...mock,default:mock}});
 vi.mock('node:child_process',()=>{const mock={execFileSync:vi.fn((command,args)=>{
  state.calls.push(args);
