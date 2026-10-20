@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';
-import {verifyReleaseAssets} from './release-policy.mjs';
+import {verifyReleaseAssets,verifyReleaseTag} from './release-policy.mjs';
 
 const {version} = JSON.parse(await readFile('package.json','utf8'));
 assert(/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version), 'Invalid release version');
@@ -11,6 +11,10 @@ const repo = process.env.GITHUB_REPOSITORY,commit = process.env.GITHUB_SHA,tag =
 assert(repo && /^[a-f0-9]{40}$/.test(commit || ''),'Run this script in the release workflow');
 if (process.env.GITHUB_REF_TYPE === 'tag') assert.equal(process.env.GITHUB_REF_NAME,tag,'Tag and package versions must match');
 const gh = args => execFileSync('gh',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+let tagRef;
+try{tagRef=JSON.parse(gh(['api',`repos/${repo}/git/ref/tags/${tag}`]))}
+catch(error){if(!String(error.stderr).includes('HTTP 404'))throw error}
+verifyReleaseTag(tagRef,commit);
 const expected = ['macOS-arm64.dmg','macOS-arm64.zip','macOS-x64.dmg','macOS-x64.zip','Windows-x64-Setup.exe','Windows-x64.zip'].map(suffix=>`Jimyeon-${version}-${suffix}`);
 const files = expected.map(name=>path.join('release-assets',name));
 const sums = [];

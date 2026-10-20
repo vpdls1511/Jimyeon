@@ -17,3 +17,8 @@ export function verifyReleaseAssets(release,digests,commit){
   assert.equal(asset.digest,`sha256:${digest}`,`Release checksum mismatch: ${name}`);
  }
 }
+
+export function verifyReleaseTag(ref,commit){
+ if(!ref)return;
+ assert(ref.object?.type==='commit'&&ref.object.sha===commit,'Existing release tag must directly reference the build commit');
+}

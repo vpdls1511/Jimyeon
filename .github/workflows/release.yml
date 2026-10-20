@@ -17,6 +17,8 @@ jobs:
     name: Check whether this version needs a release
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: write # Draft releases must be visible to the version guard.
     outputs:
       build: ${{ steps.version.outputs.build }}
     steps:

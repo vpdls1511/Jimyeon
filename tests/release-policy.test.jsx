@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {shouldBuildRelease,verifyReleaseAssets} from '../scripts/release-policy.mjs';
+import {shouldBuildRelease,verifyReleaseAssets,verifyReleaseTag} from '../scripts/release-policy.mjs';
 
 it('builds a new version but skips an already published version',()=>{
  expect(shouldBuildRelease(undefined,'commit')).toBe(true);
@@ -16,4 +16,10 @@ it('requires complete uploads with matching checksums and source before publicat
  for(const change of [doc=>doc.target_commitish='other',doc=>doc.assets.pop(),doc=>doc.assets[0].state='new',doc=>doc.assets[0].digest='sha256:wrong',doc=>doc.assets[0].name='other.zip']){
   const altered=structuredClone(release);change(altered);expect(()=>verifyReleaseAssets(altered,digests,'commit')).toThrow();
  }
+});
+it('rejects an existing version tag that does not directly point to the build commit',()=>{
+ expect(()=>verifyReleaseTag(undefined,'commit')).not.toThrow();
+ expect(()=>verifyReleaseTag({object:{type:'commit',sha:'commit'}},'commit')).not.toThrow();
+ expect(()=>verifyReleaseTag({object:{type:'commit',sha:'other'}},'commit')).toThrow('build commit');
+ expect(()=>verifyReleaseTag({object:{type:'tag',sha:'annotated'}},'commit')).toThrow('build commit');
 });
