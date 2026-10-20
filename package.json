@@ -1,13 +1,20 @@
 {
   "name": "jimyeon",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "A local-first document editor with flexible blocks, live A4/A3 pages, and PDF export that matches your layout.",
   "author": "vpdls1511",
-  "repository": {"type": "git", "url": "git+https://github.com/vpdls1511/Jimyeon.git"},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vpdls1511/Jimyeon.git"
+  },
   "homepage": "https://github.com/vpdls1511/Jimyeon#readme",
-  "bugs": {"url": "https://github.com/vpdls1511/Jimyeon/issues"},
-  "engines": {"node": ">=22.12.0"},
+  "bugs": {
+    "url": "https://github.com/vpdls1511/Jimyeon/issues"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "main": "electron/main.cjs",
   "license": "GPL-3.0-only",
   "type": "module",
@@ -51,7 +58,10 @@
     "mac": {
       "icon": "electron/resources/icon.icns",
       "category": "public.app-category.productivity",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "artifactName": "Jimyeon-${version}-macOS-${arch}.${ext}",
       "identity": "-",
       "entitlements": "electron/resources/entitlements.mac.plist",
@@ -59,7 +69,20 @@
     },
     "win": {
       "icon": "electron/resources/icon.ico",
-      "target": [{"target": "nsis", "arch": ["x64"]}, {"target": "zip", "arch": ["x64"]}],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "artifactName": "Jimyeon-${version}-Windows-${arch}.${ext}",
       "signExecutable": false
     },
@@ -70,7 +93,10 @@
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "shortcutName": "지면",
-      "installerLanguages": ["ko_KR", "en_US"]
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ]
     },
     "dmg": {
       "title": "지면 · Jimyeon",
