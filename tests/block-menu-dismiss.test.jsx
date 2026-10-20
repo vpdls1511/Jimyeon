@@ -31,3 +31,12 @@ it('keeps menu controls usable and closes when clicking elsewhere or pressing Es
  await act(async()=>trigger.click());expect(trigger.getAttribute('aria-expanded')).toBe('true');
  const dropdown=node.querySelector('[role="menu"]');act(()=>dropdown.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));expect(trigger.getAttribute('aria-expanded')).toBe('false');expect(editor.getBlock('divider').type).toBe('divider');
 });
+
+it('allows submenu selection without dismissing the parent before its action runs',async()=>{
+ const {node,trigger,editor}=await fixture();
+ const conversion=[...node.querySelectorAll('[role="menuitem"]')].find(item=>item.textContent.startsWith('전환'));
+ await act(async()=>{conversion.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,30))});
+ const heading=[...node.querySelectorAll('[role="menuitem"]')].find(item=>item.textContent==='제목 1');expect(heading).toBeDefined();
+ act(()=>heading.dispatchEvent(new Event('pointerdown',{bubbles:true})));expect(trigger.getAttribute('aria-expanded')).toBe('true');
+ await act(async()=>heading.click());expect(editor.getBlock('divider')).toMatchObject({type:'heading',props:{level:1}});expect(trigger.getAttribute('aria-expanded')).toBe('false');
+});

@@ -22,3 +22,11 @@ it('closes on Escape and returns focus when dismissed',()=>{
  const button=document.createElement('button');document.body.append(button);button.focus();const {container,onClose}=mount();
  act(()=>container.querySelector('select').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));expect(onClose).toHaveBeenCalledOnce();act(()=>roots.pop().unmount());expect(document.activeElement).toBe(button);
 });
+
+it('prevents duplicate submissions and dismissal while a save is in flight',async()=>{
+ let finish;const {container,onSave,onClose}=mount(vi.fn(()=>new Promise(resolve=>{finish=resolve})));
+ const form=container.querySelector('form');
+ act(()=>{for(let i=0;i<2;i++)form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))});
+ expect(onSave).toHaveBeenCalledOnce();expect(onClose).not.toHaveBeenCalled();expect(container.querySelector('select').disabled).toBe(true);
+ await act(async()=>finish(false));expect(container.querySelector('select').disabled).toBe(false);
+});

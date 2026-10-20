@@ -3,12 +3,12 @@ import {DOCUMENT_FORMATS} from './document-export';
 
 export function SaveDocumentDialog({onSave,onClose}){
  const [format,setFormat]=useState('jimyeon'),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const dialog=useRef(null);
+ const dialog=useRef(null),inFlight=useRef(false);
  useEffect(()=>{const previous=document.activeElement;dialog.current.querySelector('select').focus();return()=>previous?.isConnected&&previous.focus()},[]);
- const close=()=>{if(!busy)onClose()};
+ const close=()=>{if(!inFlight.current)onClose()};
  async function save(event){
-  event.preventDefault();if(busy)return;setBusy(true);setError('');
-  try{if(await onSave(format)!==false)onClose()}catch(error){setError(error.message||'문서를 저장하지 못했습니다.')}finally{setBusy(false)}
+  event.preventDefault();if(inFlight.current)return;inFlight.current=true;setBusy(true);setError('');
+  try{if(await onSave(format)!==false)onClose()}catch(error){setError(error.message||'문서를 저장하지 못했습니다.')}finally{inFlight.current=false;setBusy(false)}
  }
  function keys(event){
   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close()}
