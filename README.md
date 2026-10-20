@@ -6,6 +6,8 @@ A local-first document editor with flexible blocks, live A4/A3 pages, and PDF ex
 
 지면은 실제 용지 위에서 문서를 편집하는 로컬 문서 에디터입니다. 블록과 이미지를 자유롭게 배치하고, 페이지가 나뉘는 위치를 보면서 편집한 뒤 같은 레이아웃으로 PDF를 저장합니다. 이력서, 보고서, 기획서, 포트폴리오 등 페이지 단위 문서를 만들 수 있습니다.
 
+<img width="1518" height="901" alt="스크린샷 2026-10-20 오전 9 08 45" src="https://github.com/user-attachments/assets/fdf261e5-0c00-4649-aa85-147490ec5e2b" />
+
 ## 주요 기능
 
 - **페이지 위에서 직접 편집**: A4·A3, 페이지 경계, 상·하·좌·우 여백, 직접 페이지 나누기와 페이지 번호.
