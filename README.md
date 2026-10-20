@@ -97,25 +97,6 @@ npm start
 - 브라우저 문서는 해당 브라우저의 기기 저장소에 남습니다. 브라우저 데이터 삭제 전에 문서 파일을 저장해 두세요.
 - macOS 앱의 자동 저장은 `~/Library/Application Support/ResumeEditor/document.json`에 보관합니다. 초기 버전 사용자의 문서를 이어받기 위해 저장 경로와 문서 형식 식별자는 유지합니다.
 
-## 개발과 빌드
-
-```bash
-npm test          # 자동 검사
-npm run build    # 웹 빌드와 의존성 라이선스 고지 생성
-npm run app:pack     # 현재 운영체제의 앱 폴더
-npm run app:dist     # 현재 운영체제의 설치 파일·ZIP
-npm run app:dist:mac # macOS DMG·ZIP (Mac에서 실행)
-npm run app:dist:win # Windows x64 설치 EXE·ZIP (Windows에서 실행)
-```
-
-빌드 결과는 `release/`에 생성됩니다. GitHub Actions의 **Desktop release**를 실행하면 Mac 두 아키텍처와 Windows를 각 운영체제에서 빌드하고 모두 성공한 결과를 하나의 릴리즈 초안에 첨부합니다. 설치 파일·소스 버전·태그를 연결하는 방법은 [릴리즈 안내](RELEASING.md)를 참고하세요.
-
-현재 문서 구조, 입력 규칙, 다중 열, 선택·드래그, 저장, 페이지 계산과 출력용 화면 보존에 대한 **121개 자동 검사**가 있습니다. 브라우저와 Electron의 실제 화면 검증은 macOS에서 진행했습니다. 모든 블록 조합이나 외부 임베드의 인쇄 결과를 보장하는 것은 아닙니다.
-
-구현은 React, BlockNote, ProseMirror, Electron, Vite를 사용합니다. 기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
-
-앱 아이콘 원본은 `electron/resources/icon-source.png`입니다. macOS에서 `swift scripts/generate-icons.swift`를 실행하면 원본 비율과 투명도를 유지한 PNG·ICNS·ICO를 다시 생성합니다. 생성된 아이콘도 저장소에 포함되어 있어 일반 빌드에서는 이 명령이 필요하지 않습니다.
-
 ## 라이선스
 
 [GPL-3.0-only](LICENSE). 주요 의존성의 정보는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 기록되어 있습니다. 빌드 시 설치된 런타임 의존성의 라이선스 파일을 모아 `THIRD_PARTY_LICENSES.txt`를 생성하며 앱에도 포함합니다.
