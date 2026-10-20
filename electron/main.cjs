@@ -2,7 +2,7 @@ const {app, BrowserWindow, Menu, protocol, net, ipcMain, dialog, shell, session}
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 const {randomUUID} = require('node:crypto');
-const {bundlePath, validatePDF, safeName, externalURL, atomicWrite, resolveImage, MAX_DOCUMENT_BYTES} = require('./files.cjs');
+const {bundlePath, validatePDF, safeName, saveFileOptions, externalURL, atomicWrite, resolveImage, MAX_DOCUMENT_BYTES} = require('./files.cjs');
 const {createDraftStore} = require('./draft-store.cjs');
 
 app.setName('지면');
@@ -47,9 +47,7 @@ function handlers() {
   });
   ipcMain.handle('editor:save-file', async (event, file) => {
     trusted(event);
-    if (!file || !(file.bytes instanceof Uint8Array) || file.bytes.byteLength > MAX_DOCUMENT_BYTES || !['application/json', 'text/markdown'].includes(file.type)) throw Error('저장할 문서를 확인해 주세요.');
-    const extension = file.type === 'application/json' ? 'jimyeon' : 'md';
-    const result = await dialog.showSaveDialog(mainWindow, {defaultPath: safeName(file.name), filters: [{name: extension === 'jimyeon' ? '지면 문서' : '마크다운', extensions: [extension]}]});
+    const result = await dialog.showSaveDialog(mainWindow, saveFileOptions(file));
     if (result.canceled || !result.filePath) return false;
     await atomicWrite(result.filePath, file.bytes); return true;
   });
