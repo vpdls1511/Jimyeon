@@ -19,6 +19,9 @@ export async function freezeLiveSource(source,meta){
   if(node.classList.contains('find-match'))clone.style.setProperty('background-color','transparent','important');
  });
  copy.querySelectorAll('.page-tools,.page-emoji,.cover-actions,.locked-note,.bn-side-menu,.bn-toolbar,.bn-suggestion-menu,.bn-file-panel,.bn-file-block-top,.bn-resize-handle,.column-resize-layer,.bn-trailing-block,.web-edit,.button-config,.button-settings,.emoji-popover,script').forEach(node=>node.remove());
+ // In-flow editing controls and hints keep their measured box so the live page cuts still line up, but print nothing.
+ // An equation being edited prints only its preview, and an empty expression's hint prints nothing.
+ copy.querySelectorAll('.tabs-bar button[title="탭 추가"],.tabs-bar input,.inline-equation input,.bn-toggle-add-block-button,.bn-add-file-button,.web-block form,.equation form,.table-of-contents>span,[data-math-hint]').forEach(node=>[node,...node.querySelectorAll('*')].forEach(el=>{if(!el.closest('.equation-preview')||el.closest('[data-math-hint]'))el.style.setProperty('visibility','hidden','important')}));
  for(const node of copy.querySelectorAll('[data-block-range-selected]'))node.removeAttribute('data-block-range-selected');
  // The computed blue background is a transient decoration, too.
  originals.forEach((node,i)=>{if(node.hasAttribute('data-block-range-selected'))clones[i].style.setProperty('background-color','transparent','important')});
@@ -62,6 +65,7 @@ export async function livePrintJob(source,meta,layout){
  .printed-sheet{width:${p.width}px;height:${p.height}px;overflow:hidden;position:relative;break-after:page;page-break-after:always;background:#fff;color:#37352f}
  .printed-sheet:last-child{break-after:auto;page-break-after:auto}
  .frozen-document{width:${p.width}px!important;pointer-events:none}
+ .frozen-document .bn-block-content::after{visibility:hidden!important}
  .frozen-document,.frozen-document *{break-before:auto!important;break-after:auto!important;break-inside:auto!important;orphans:1;widows:1}
  .printed-page-number{z-index:2}
  .printed-margin{position:absolute;left:0;right:0;background:#fff;z-index:1}
