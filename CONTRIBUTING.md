@@ -20,7 +20,7 @@ npm run app
 
 PDF 출력은 Electron 앱 또는 `npm run build` 후 `npm start`에서 확인합니다. 개발 화면(`npm run dev`)만 실행하면 PDF 출력 서버가 실행되지 않습니다.
 
-데스크톱 앱의 자동 저장은 macOS `~/Library/Application Support/ResumeEditor/`, Windows `%APPDATA%\ResumeEditor\`에 보관합니다. 초기 버전 사용자의 문서를 이어받기 위해 저장 경로(폴더 이름)는 유지합니다. 문서 형식 식별자와 브라우저 저장소 이름은 `jimyeon`으로 바뀌었고, 이전 식별자(`local-notion-editor`)의 문서와 저장소는 새 버전이 읽어 옮깁니다. 반대 방향은 되지 않아서, 새 버전이 저장한 문서와 자동 저장 파일은 이전 버전에서 열리지 않습니다.
+데스크톱 앱의 자동 저장은 macOS `~/Library/Application Support/ResumeEditor/`, Windows `%APPDATA%\ResumeEditor\`에 보관합니다. 초기 버전 사용자의 문서를 이어받기 위해 저장 경로(폴더 이름)는 유지합니다. 문서 형식 식별자와 브라우저 저장소 이름은 `jimyeon`으로 바뀌었고, 이전 식별자의 문서와 저장소는 새 버전이 읽어 옮깁니다. 반대 방향은 되지 않아서, 새 버전이 저장한 문서와 자동 저장 파일은 이전 버전에서 열리지 않습니다.
 
 설치 파일 빌드와 릴리즈 배포 절차는 [RELEASING.md](RELEASING.md)를 참고하세요.
 

@@ -1,21 +1,15 @@
 import {act} from 'react';
 import {beforeAll,describe,expect,it,vi} from 'vitest';
 import {openDB} from 'idb';
-import {saveDocument,emptyDocument,listRevisions} from '../src/storage';
-globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+import {emptyDocument,listRevisions} from '../src/storage';
+import {launchApp,settle,chooseFile} from './launch-app';
 const doc=(title,content,extra={})=>({...emptyDocument(),...extra,title,blocks:[{type:'paragraph',content}]});
 const view=()=>document.querySelector('.ProseMirror'),body=()=>view().textContent,title=()=>document.querySelector('#document-title').value;
-const wait=ms=>act(()=>new Promise(resolve=>setTimeout(resolve,ms)));
 const stored=async()=>{const db=await openDB('jimyeon',1);try{return await db.get('documents','current')}finally{db.close()}};
 const savedText=saved=>saved.blocks.map(b=>(b.content||[]).map(c=>c.text).join('')).join('\n');
 async function undo(){await act(async()=>{view().dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true,cancelable:true}))})}
 async function menu(label){await act(async()=>document.querySelector('[aria-label="문서 메뉴"]').click());await act(async()=>[...document.querySelectorAll('.document-menu button')].find(b=>b.textContent.includes(label)).click())}
-async function importFile(name,text){
- const input=document.querySelector('input[type="file"][accept*=".jimyeon"]');
- // jsdom File has no text(); openFile only reads the name and text.
- Object.defineProperty(input,'files',{configurable:true,value:[{name,text:async()=>text}]});
- await act(async()=>{input.dispatchEvent(new Event('change',{bubbles:true}))});
-}
+const importFile=(name,text)=>act(async()=>chooseFile(name,text));
 // Each import uses a new title so waiting for it proves the switch finished.
 async function importDocument(value){
  await importFile(value.title+'.jimyeon',JSON.stringify(value));
@@ -23,12 +17,9 @@ async function importDocument(value){
 }
 async function expectAfterUndo(expectedTitle,expectedBody){
  await undo();expect(body()).toBe(expectedBody);expect(title()).toBe(expectedTitle);
- await wait(400);const saved=await stored();expect(saved.title).toBe(expectedTitle);expect(savedText(saved)).toBe(expectedBody);
+ await settle();const saved=await stored();expect(saved.title).toBe(expectedTitle);expect(savedText(saved)).toBe(expectedBody);
 }
-beforeAll(async()=>{
- await saveDocument(doc('A 기획서','A 본문',{paper:'A3'}));const root=document.createElement('div');root.id='root';document.body.append(root);
- await act(async()=>{await import('../src/main.jsx')});await vi.waitFor(()=>expect(body()).toBe('A 본문'));
-},30000);
+beforeAll(()=>launchApp(doc('A 기획서','A 본문',{paper:'A3'})),30000);
 describe('switching documents starts a new undo history',()=>{
  it('keeps an imported document intact when undoing right after opening it, while later edits stay undoable',async()=>{
   await importDocument(doc('B 이력서','B 본문',{paper:'A4',marginLeft:25}));
@@ -77,9 +68,9 @@ describe('importing other files',()=>{
  it('keeps the editor on screen when a document file has non-text title or icon values',async()=>{
   await importDocument(doc('J 기획서','J 본문'));
   await importFile('외부 도구.jimyeon',JSON.stringify({...doc('','K 본문'),title:{ko:'이력서'},icon:{emoji:'📄'}}));
-  await vi.waitFor(()=>expect(body()).toBe('K 본문'));
-  expect(title()).toBe('');expect(document.querySelector('.page-icon')).toBeNull();
-  await wait(400);expect((await stored())).toMatchObject({title:'',icon:''});
+  await vi.waitFor(()=>{expect(body()).toBe('K 본문');expect(title()).toBe('')});
+  expect(document.querySelector('.page-icon')).toBeNull();
+  await vi.waitFor(async()=>expect((await stored())).toMatchObject({title:'',icon:''}));
  });
  it('starts md, html and text imports from new-document defaults while a document file keeps its own properties',async()=>{
   const decorated=title=>doc(title,'L 본문',{icon:'📄',cover:'data:image/png;base64,YQ==',locked:true,paper:'A3'});
@@ -89,10 +80,10 @@ describe('importing other files',()=>{
    await importDocument(decorated('L 기획서 '+name));
    await importFile(name,text);await vi.waitFor(()=>expect(title()).toBe('새글'));expect(view().textContent).toBe(body);
    expect(locked()).toBeNull();expect(icon()).toBeNull();expect(cover()).toBeNull();
-   await wait(400);expect(await stored()).toMatchObject({title:'새글',icon:'',cover:'',locked:false,paper:'A4'});
+   await vi.waitFor(async()=>expect(await stored()).toMatchObject({title:'새글',icon:'',cover:'',locked:false,paper:'A4'}));
   }
   await importDocument(decorated('M 기획서'));expect(locked()).not.toBeNull();expect(icon()).not.toBeNull();expect(cover()).not.toBeNull();
-  await wait(400);expect(await stored()).toMatchObject({locked:true,icon:'📄',paper:'A3'});
+  await vi.waitFor(async()=>expect(await stored()).toMatchObject({title:'M 기획서',locked:true,icon:'📄',paper:'A3'}));
  });
  it('adds a revision of the previous document only when the import succeeds',async()=>{
   await importDocument(doc('N 기획서','N 본문'));

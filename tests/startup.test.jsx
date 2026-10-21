@@ -18,3 +18,11 @@ it('renders a recovery notice with working import and new document when IndexedD
  (await menuItem('새 문서')).click();await vi.waitFor(()=>expect(title().value).toBe(''));expect(body()).not.toContain('복구한 본문');
  alert().querySelector('button[aria-label="닫기"]').click();await vi.waitFor(()=>expect(alert()).toBeNull());
 },30000);
+it('still downloads a document file after autosave fails because IndexedDB cannot be opened',async()=>{
+ const title=document.querySelector('#document-title');URL.createObjectURL=vi.fn(()=>'blob:document');URL.revokeObjectURL=()=>{};
+ Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(title,'백업할 문서');title.dispatchEvent(new Event('input',{bubbles:true}));
+ await vi.waitFor(()=>expect(document.querySelector('.save-status').textContent).toContain('저장 실패'));expect(document.querySelector('.toast')?.textContent).toBe('저장 공간을 확인하고 문서 파일로 저장해 주세요.');
+ document.querySelector('#save-json').click();const form=await vi.waitFor(()=>document.querySelector('form[aria-labelledby="save-document-title"]')||Promise.reject(Error('저장 대화상자가 열리지 않았습니다.')));
+ form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+ await vi.waitFor(()=>expect(URL.createObjectURL).toHaveBeenCalledOnce());await vi.waitFor(()=>expect(document.querySelector('.toast')?.textContent).toBe('내용과 배치를 문서 파일로 저장했습니다.'));
+},30000);

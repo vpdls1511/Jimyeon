@@ -5,8 +5,9 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {openDB} from 'idb';
 import {IDBFactory} from 'fake-indexeddb';
-import {saveDocument,loadDocument,emptyDocument,restoredFromPrevious} from '../src/storage';
-const {bundlePath,validatePDF,serializeDraft,safeName,externalURL,atomicWrite,resolveImage}=createRequire(import.meta.url)('../electron/files.cjs');
+import {Blob as NodeBlob} from 'node:buffer';
+import {saveDocument,loadDocument,emptyDocument,restoredFromPrevious,saveFailureMessage,download,MAX_DESKTOP_DOCUMENT_BYTES} from '../src/storage';
+const {bundlePath,validatePDF,serializeDraft,safeName,externalURL,atomicWrite,resolveImage,MAX_DOCUMENT_BYTES}=createRequire(import.meta.url)('../electron/files.cjs');
 
 afterEach(()=>{delete window.desktop;vi.unstubAllGlobals()});
 
@@ -72,6 +73,14 @@ describe('desktop autosave',()=>{
   await expect(storage.revision(draft)).resolves.toBeUndefined();const history=await storage.listRevisions();expect(history).toHaveLength(0);expect(history.unavailable).toBe(true);
   window.desktop={loadDraft:vi.fn().mockResolvedValue(null)};await expect(storage.loadDocument()).rejects.toThrow();
  });
+ it('names the 100MB limit when a desktop autosave or document file is too large',async()=>{
+  const generic='저장 공간을 확인하고 문서 파일로 저장해 주세요.',huge={...emptyDocument(),blocks:[{type:'paragraph',content:'a'.repeat(MAX_DOCUMENT_BYTES)}]};
+  expect(saveFailureMessage(huge)).toBe(generic);
+  window.desktop={saveFile:vi.fn()};expect(saveFailureMessage(emptyDocument())).toBe(generic);expect(saveFailureMessage(huge)).toContain('100MB');
+  // jsdom's Blob converts a 100MB string far too slowly; the editor runs on a native Blob.
+  vi.stubGlobal('Blob',NodeBlob);await expect(download('큰 문서.jimyeon',JSON.stringify(huge),'application/json')).rejects.toThrow('100MB');expect(window.desktop.saveFile).not.toHaveBeenCalled();
+ });
+ it('keeps the editor size limit equal to the desktop save limit',()=>{expect(MAX_DESKTOP_DOCUMENT_BYTES).toBe(MAX_DOCUMENT_BYTES)});
  it('propagates disk errors so closing can be canceled',async()=>{
   window.desktop={saveDraft:vi.fn().mockRejectedValue(Error('disk full'))};
   await expect(saveDocument(emptyDocument())).rejects.toThrow('disk full');
