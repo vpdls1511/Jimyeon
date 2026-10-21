@@ -30,14 +30,37 @@ it('adds an inline equation from the slash menu with Enter, and Escape leaves th
  let input=field(node,'LaTeX 수식');expect(input).not.toBeNull();expect(document.activeElement).toBe(input);
  key(input,'Escape');expect(field(node,'LaTeX 수식')).toBeNull();expect(editor.document).toEqual(before);
  editor.setTextCursorPosition('a','end');await act(async()=>item.onItemClick());
+ key(field(node,'LaTeX 수식'),'Enter');expect(field(node,'LaTeX 수식')).toBeNull();expect(editor.document).toEqual(before);
+ editor.setTextCursorPosition('a','end');await act(async()=>item.onItemClick());
  input=field(node,'LaTeX 수식');type(input,'x^2');key(input,'Enter');
  expect(field(node,'LaTeX 수식')).toBeNull();expect(equations(editor)).toEqual(['x^2']);expect(editor.document).toHaveLength(1);
 });
 
-it('edits an inline equation in place on double-click and keeps it on Escape',async()=>{
+it('keeps a new inline equation out of undo history until it is applied, then undoes it in one step',async()=>{
+ // History merges changes made within 500ms, so space the steps out like a person would.
+ vi.useFakeTimers({toFake:['Date']});cleanups.push(()=>vi.useRealTimers());const later=()=>vi.setSystemTime(Date.now()+1000);
+ const {editor,node}=await mount([{id:'a',type:'paragraph',content:'x'}]),item=extraSlashItems(editor).find(i=>i.title==='인라인 수식');
+ editor.setTextCursorPosition('a','end');editor.insertInlineContent('y');const typed=editor.document;later();
+ await act(async()=>item.onItemClick());later();key(field(node,'LaTeX 수식'),'Escape');later();expect(editor.document).toEqual(typed);
+ act(()=>editor.undo());expect(editor.getBlock('a').content).toEqual([{type:'text',text:'x',styles:{}}]);expect(field(node,'LaTeX 수식')).toBeNull();
+ editor.setTextCursorPosition('a','end');const before=editor.document;later();
+ await act(async()=>item.onItemClick());later();const input=field(node,'LaTeX 수식');type(input,'x^2');later();key(input,'Enter');expect(equations(editor)).toEqual(['x^2']);later();
+ act(()=>editor.undo());expect(editor.document).toEqual(before);expect(field(node,'LaTeX 수식')).toBeNull();
+});
+
+it('leaves empty equations already in a document closed, keeps them on Escape or an empty Enter and exports only the formula',async()=>{
+ const {editor,node}=await mount([{id:'a',type:'paragraph',content:['f ',{type:'inlineEquation',props:{expression:''}},' g ',{type:'inlineEquation',props:{expression:''}}]}]),before=editor.document;
+ await act(async()=>{});expect(field(node,'LaTeX 수식')).toBeNull();expect(document.activeElement).toBe(document.body);
+ for(const name of ['Escape','Enter']){dblclick(node.querySelector('.inline-equation'));key(field(node,'LaTeX 수식'),name);expect(field(node,'LaTeX 수식')).toBeNull();expect(editor.document).toEqual(before)}
+ for(const html of [await editor.blocksToHTMLLossy(editor.document),await editor.blocksToFullHTML(editor.document)])expect(html).not.toContain('<input');
+});
+
+it('edits an inline equation in place on double-click and keeps it on Escape or an empty Enter',async()=>{
  const {editor,node}=await mount([{id:'a',type:'paragraph',content:['f ',{type:'inlineEquation',props:{expression:'a+b'}}]}]);
  dblclick(node.querySelector('.inline-equation'));let input=field(node,'LaTeX 수식');expect(input.value).toBe('a+b');
  type(input,'c');key(input,'Escape');expect(field(node,'LaTeX 수식')).toBeNull();expect(equations(editor)).toEqual(['a+b']);
+ dblclick(node.querySelector('.inline-equation'));input=field(node,'LaTeX 수식');
+ type(input,'');key(input,'Enter');expect(field(node,'LaTeX 수식')).toBeNull();expect(equations(editor)).toEqual(['a+b']);
  dblclick(node.querySelector('.inline-equation'));input=field(node,'LaTeX 수식');expect(input.value).toBe('a+b');
  type(input,'c');key(input,'Enter');expect(equations(editor)).toEqual(['c']);expect(editor.document).toHaveLength(1);
 });
