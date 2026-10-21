@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BlockNoteEditor } from '@blocknote/core';
 import { openDB } from 'idb';
 import { schema } from '../src/blocks';
-import { migrateDocument } from '../src/document';
+import { emptyDocument, migrateDocument } from '../src/document';
 import { loadDocument, listRevisions } from '../src/storage';
 
 const oldDocument = () => ({
@@ -87,5 +87,11 @@ describe('migration after removing comments and synchronization', () => {
     expect(stored.blocks[0].type).toBe('bulletListItem');
     expect((await listRevisions()).find(v => v.time === 1).doc).toEqual(stored);
     db.close();
+  });
+
+  it('defaults the paper to A4 and keeps a saved A3 paper', () => {
+    expect(emptyDocument().paper).toBe('A4');
+    expect(migrateDocument({}).paper).toBe('A4');
+    expect(migrateDocument({ paper: 'A3' }).paper).toBe('A3');
   });
 });
