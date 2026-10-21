@@ -16,7 +16,7 @@ const TOO_LARGE='문서가 100MB를 넘어 저장할 수 없습니다. 큰 첨�
 // Sized as the document file is written (indented), the largest form, so a document that attaches and autosaves can still be saved as a file.
 const documentBytes=doc=>new TextEncoder().encode(JSON.stringify(doc,null,2)).length;
 // Measured only after a save fails, so ordinary autosaves do not pay for serializing the document twice.
-export function saveFailureMessage(doc){return window.desktop&&documentBytes(doc)>MAX_DESKTOP_DOCUMENT_BYTES?TOO_LARGE:'저장 공간을 확인하고 문서 파일로 저장해 주세요.'}
+export function saveFailureMessage(doc){return doc&&window.desktop&&documentBytes(doc)>MAX_DESKTOP_DOCUMENT_BYTES?TOO_LARGE:'저장 공간을 확인하고 문서 파일로 저장해 주세요.'}
 export function readFileData(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file)})}
 // BlockNote expects a partial block, with file data inside props. On the desktop, refuse a file before reading it
 // when its data URL (4 bytes per 3, plus a short prefix) would push the document past the save limit.
