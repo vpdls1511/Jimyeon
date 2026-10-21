@@ -47,3 +47,19 @@ it('does not publish when any uploaded digest differs from the local file',async
  await expect(import('../scripts/create-release.mjs')).rejects.toThrow('checksum mismatch');
  expect(state.calls.some(args=>args[1]==='edit')).toBe(false);expect(state.draft).toBe(true);
 });
+function useVersion(version){
+ for(const key of [...state.files.keys()])if(key.startsWith('release-assets/'))state.files.delete(key);
+ state.files.set('package.json',JSON.stringify({version}));
+ for(const suffix of ['macOS-arm64.dmg','macOS-arm64.zip','macOS-x64.dmg','macOS-x64.zip','Windows-x64-Setup.exe','Windows-x64.zip'])state.files.set(`release-assets/Jimyeon-${version}-${suffix}`,Buffer.alloc(1_000_001,suffix.length));
+}
+it('creates prerelease versions as prereleases and never marks them latest',async()=>{
+ useVersion('1.0.2-rc.1');vi.stubEnv('PUBLISH_RELEASE','true');await import('../scripts/create-release.mjs');
+ expect(state.calls.find(args=>args[1]==='create')).toContain('--prerelease');
+ const edit=state.calls.find(args=>args[1]==='edit');
+ expect(edit).toContain('--latest=false');expect(edit).not.toContain('--latest');expect(state.draft).toBe(false);
+});
+it('keeps stable versions as non-prerelease latest releases',async()=>{
+ vi.stubEnv('PUBLISH_RELEASE','true');await import('../scripts/create-release.mjs');
+ expect(state.calls.find(args=>args[1]==='create')).not.toContain('--prerelease');
+ expect(state.calls.find(args=>args[1]==='edit')).toContain('--latest');
+});
