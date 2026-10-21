@@ -13,7 +13,8 @@ export async function listRevisions(){const db=await historyDB;return db?(await 
 // The desktop app refuses to autosave or save a document file above this size; keep it equal to MAX_DOCUMENT_BYTES in electron/files.cjs.
 export const MAX_DESKTOP_DOCUMENT_BYTES=100*1024*1024;
 const TOO_LARGE='문서가 100MB를 넘어 저장할 수 없습니다. 큰 첨부 파일을 지워 크기를 줄여 주세요.';
-const documentBytes=doc=>new TextEncoder().encode(JSON.stringify(doc)).length;
+// Sized as the document file is written (indented), the largest form, so a document that attaches and autosaves can still be saved as a file.
+const documentBytes=doc=>new TextEncoder().encode(JSON.stringify(doc,null,2)).length;
 // Measured only after a save fails, so ordinary autosaves do not pay for serializing the document twice.
 export function saveFailureMessage(doc){return window.desktop&&documentBytes(doc)>MAX_DESKTOP_DOCUMENT_BYTES?TOO_LARGE:'저장 공간을 확인하고 문서 파일로 저장해 주세요.'}
 export function readFileData(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file)})}

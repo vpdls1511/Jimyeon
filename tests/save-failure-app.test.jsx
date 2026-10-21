@@ -48,3 +48,10 @@ it('refuses an attachment that would push the desktop document past 100MB and sa
  await expect(editor.uploadFile({name:'영상.mp4',type:'video/mp4',size:80*1024*1024})).rejects.toThrow('100MB');
  await vi.waitFor(()=>expect(toast()).toContain('100MB'));
 });
+it('shows a failed save when the snapshot itself throws, and saves again later',async()=>{
+  await edit('보고서 5');await vi.waitFor(()=>expect(status()).toBe('저장됨'));
+ const spy=vi.spyOn(globalThis,'structuredClone').mockImplementationOnce(()=>{throw Error('clone failed')});
+ try{await edit('보고서 6');await vi.waitFor(()=>expect(status()).toBe('저장 실패'));expect(toast()).toBe(notice)}finally{spy.mockRestore()}
+ const calls=window.desktop.saveDraft.mock.calls.length;hide();
+ await vi.waitFor(()=>expect(status()).toBe('저장됨'));expect(window.desktop.saveDraft.mock.calls.length).toBe(calls+1);
+});

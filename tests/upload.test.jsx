@@ -23,3 +23,11 @@ it('refuses a desktop attachment before reading it when the document would pass 
  await expect(uploadLocalFile({...video,size:40*1024*1024},large)).rejects.toThrow('100MB');
  expect((await uploadLocalFile(new File(['image bytes'],'profile.png',{type:'image/png'}),large)).props.url).toBe('data:image/png;base64,aW1hZ2UgYnl0ZXM=');
 });
+it('counts the indented document file size so a document that attaches can still be saved as a file',async()=>{
+ window.desktop={};const doc={...emptyDocument(),blocks:Array.from({length:200000},()=>({type:'paragraph'}))};
+ const compact=JSON.stringify(doc).length,indented=JSON.stringify(doc,null,2).length,limit=100*1024*1024;
+ // The data URL leaves the compact size under the limit but the indented file over it.
+ const encoded=limit-Math.round((compact+indented)/2),video={name:'영상.mp4',type:'video/mp4',size:Math.floor(encoded/4)*3};
+ expect(compact+Math.ceil(video.size/3)*4+100).toBeLessThan(limit);expect(indented+Math.ceil(video.size/3)*4).toBeGreaterThan(limit);
+ await expect(uploadLocalFile(video,doc)).rejects.toThrow('100MB');
+});
