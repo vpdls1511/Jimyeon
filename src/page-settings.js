@@ -3,8 +3,10 @@ export const PAGE_GAP=28;
 export const PAGE_SIZES={A4:{width:210,height:297},A3:{width:297,height:420}};
 const number=(value,fallback,min,max)=>Number.isFinite(Number(value))?Math.min(max,Math.max(min,Number(value))):fallback;
 
-// Footer text height (1.5 line) plus its bottom offset must fit inside the bottom margin.
-export const minNumberMargin=fontSize=>{const h=Math.max(8,fontSize-3)*96/72*1.5/PX_PER_MM;return Math.max(8,Math.ceil(Math.max(3+h,2*h-4)))};
+// The page number line (mm offsets from the bottom edge) must fit inside the bottom margin.
+export const FOOTER_LINE_HEIGHT=1.2;
+export const footerOffset=marginBottom=>Math.max(3,marginBottom/2-2);
+export const minNumberMargin=fontSize=>{const h=Math.max(8,fontSize-3)*96/72*FOOTER_LINE_HEIGHT/PX_PER_MM;let margin=8;while(footerOffset(margin)+h>margin)margin++;return margin};
 export function pageSettings(meta={}){
  const pageNumber=['none','left','center','right'].includes(meta.pageNumber)?meta.pageNumber:'none';
  const fontSize=number(meta.fontSize,meta.small?10.5:12,8,24);
@@ -31,7 +33,7 @@ export function pageVariables(meta){
 }
 export function footerStyle(meta){
  const p=pageMetrics(meta);
- return {left:p.left+'px',right:p.right+'px',bottom:Math.max(3,p.marginBottom/2-2)*PX_PER_MM+'px',textAlign:p.pageNumber==='none'?'center':p.pageNumber,fontSize:Math.max(8,p.fontSize-3)*96/72+'px',color:'#929292'};
+ return {left:p.left+'px',right:p.right+'px',bottom:footerOffset(p.marginBottom)*PX_PER_MM+'px',textAlign:p.pageNumber==='none'?'center':p.pageNumber,fontSize:Math.max(8,p.fontSize-3)*96/72+'px',lineHeight:FOOTER_LINE_HEIGHT,color:'#929292'};
 }
 
 // Work in physical document pixels, independent of the screen zoom.
