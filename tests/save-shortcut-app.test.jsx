@@ -1,20 +1,13 @@
 import {act} from 'react';
-import {afterEach,beforeAll,expect,it,vi} from 'vitest';
-import {emptyDocument,saveDocument} from '../src/storage';
-globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+import {afterEach,beforeAll,expect,it} from 'vitest';
+import {emptyDocument} from '../src/storage';
+import {launchApp} from './launch-app';
 const dialog=()=>document.querySelector('[role="dialog"][aria-labelledby="save-document-title"]');
 async function pressSave(target,modifier){
  const event=new KeyboardEvent('keydown',{key:'s',[modifier]:true,bubbles:true,cancelable:true});
  await act(async()=>{target.dispatchEvent(event)});return event;
 }
-beforeAll(async()=>{
- await saveDocument({...emptyDocument(),title:'이력서',blocks:[{type:'paragraph',content:'본문'}]});
- const root=document.createElement('div');root.id='root';document.body.append(root);
- await act(async()=>{await import('../src/main.jsx')});await vi.waitFor(()=>expect(document.querySelector('.ProseMirror')?.textContent).toBe('본문'));
- // Let the startup autosave and page layout finish first; otherwise React work they schedule can run after jsdom is torn down.
- await vi.waitFor(()=>{expect(document.querySelector('.save-status').textContent).toContain('저장됨');expect(['페이지 반영됨','크기 조정 필요']).toContain(document.querySelector('.preview-state').textContent)},{timeout:10000});
- await act(()=>new Promise(resolve=>setTimeout(resolve,50)));
-},30000);
+beforeAll(()=>launchApp({...emptyDocument(),title:'이력서',blocks:[{type:'paragraph',content:'본문'}]}),30000);
 afterEach(async()=>{const cancel=[...(dialog()?.querySelectorAll('button')||[])].find(b=>b.textContent==='취소');if(cancel)await act(async()=>cancel.click())});
 it('opens the save dialog instead of the browser page save while the title has focus',async()=>{
  const title=document.querySelector('#document-title');title.focus();
