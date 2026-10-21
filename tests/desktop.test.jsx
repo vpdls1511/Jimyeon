@@ -4,7 +4,8 @@ import {mkdtemp,readFile,rm,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {openDB} from 'idb';
-import {saveDocument,loadDocument,emptyDocument} from '../src/storage';
+import {IDBFactory} from 'fake-indexeddb';
+import {saveDocument,loadDocument,emptyDocument,restoredFromPrevious} from '../src/storage';
 const {bundlePath,validatePDF,serializeDraft,safeName,externalURL,atomicWrite,resolveImage}=createRequire(import.meta.url)('../electron/files.cjs');
 
 afterEach(()=>{delete window.desktop;vi.unstubAllGlobals()});
@@ -57,6 +58,19 @@ describe('desktop autosave',()=>{
   const doc={...emptyDocument(),title:'다시 연 문서',paper:'A4',marginLeft:18,blocks:[{id:'image',type:'image',props:{url:'data:image/png;base64,AAAA'}}]};
   window.desktop={loadDraft:vi.fn().mockResolvedValue(doc)};
   expect(await loadDocument()).toMatchObject(doc);
+ });
+ it('reports a draft restored from the previous copy without keeping the mark in the document',async()=>{
+  const doc={...emptyDocument(),title:'이전 저장본'};window.desktop={loadDraft:vi.fn().mockResolvedValue({...doc,restoredFromPrevious:true})};
+  const loaded=await loadDocument();expect(restoredFromPrevious).toBe(true);expect(loaded.title).toBe('이전 저장본');expect(loaded).not.toHaveProperty('restoredFromPrevious');
+  const db=await openDB('local-notion-editor',1);expect(await db.get('documents','current')).not.toHaveProperty('restoredFromPrevious');db.close();
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(doc)};await loadDocument();expect(restoredFromPrevious).toBe(false);
+ });
+ it('opens the disk draft and only turns off revision history when IndexedDB cannot be opened',async()=>{
+  vi.stubGlobal('indexedDB',new IDBFactory());(await openDB('local-notion-editor',2)).close();
+  vi.resetModules();const storage=await import('../src/storage'),draft={...emptyDocument(),title:'디스크 초안'};
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(draft)};expect(await storage.loadDocument()).toMatchObject(draft);
+  await expect(storage.revision(draft)).resolves.toBeUndefined();const history=await storage.listRevisions();expect(history).toHaveLength(0);expect(history.unavailable).toBe(true);
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(null)};await expect(storage.loadDocument()).rejects.toThrow();
  });
  it('propagates disk errors so closing can be canceled',async()=>{
   window.desktop={saveDraft:vi.fn().mockRejectedValue(Error('disk full'))};
