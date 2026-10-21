@@ -5,7 +5,9 @@ export const DOCUMENT_EXTENSION = '.jimyeon';
 // Keep legacy backups readable while all new exports use the Jimyeon extension.
 export const isDocumentFile = name => /\.(?:jimyeon|json)$/i.test(name);
 export function parseDocumentFile(text) {
-  const input = JSON.parse(text);
+  let input;
+  try { input = JSON.parse(text); }
+  catch { throw Error('문서 파일이 손상되었거나 형식이 올바르지 않습니다.'); }
   if (!input || input.format !== 'local-notion-editor' || !Array.isArray(input.blocks)) {
     throw Error('이 에디터에서 저장한 문서를 선택하세요.');
   }
@@ -67,8 +69,9 @@ export function migrateDocument(value) {
   const document = emptyDocument();
   // Only document properties are carried forward: removed comment annotations,
   // thread records and raw editor state must never reappear on import/restore.
+  // Values of the wrong type (e.g. an object title from another tool) fall back to the default.
   for (const key of Object.keys(document)) {
-    if (!['format', 'version', 'blocks'].includes(key) && original[key] !== undefined) {
+    if (!['format', 'version', 'blocks'].includes(key) && typeof original[key] === typeof document[key]) {
       document[key] = original[key];
     }
   }
