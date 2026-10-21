@@ -180,4 +180,19 @@ describe('PDF uses the live page layout',()=>{
    expect([...doc.querySelectorAll('.frozen-document input')].filter(shown)).toEqual([]);
   }finally{destroy()}
  });
+ it('embeds the web fonts the printed copy uses, once per job, because the print page cannot fetch them across origins',async()=>{
+  const style=document.createElement('style'),node=source(),math=document.createElement('span'),at=path=>new URL(path,location.href).href;
+  style.textContent='@font-face{font-family:KaTeX_Main;font-style:normal;font-weight:400;src:url(/assets/KaTeX_Main-Regular.woff2) format("woff2"),url(/assets/KaTeX_Main-Regular.woff) format("woff")} @font-face{font-family:KaTeX_Main;font-style:normal;font-weight:700;src:url(/assets/KaTeX_Main-Bold.woff2) format("woff2")} @font-face{font-family:Inter;font-style:normal;font-weight:400;src:local(""),url(/assets/inter.woff2) format("woff2")}';
+  document.head.append(style);math.style.fontFamily='"KaTeX_Main", "Times New Roman", serif';math.textContent='x';node.querySelector('.bn-editor').append(math);
+  // jsdom drops an unquoted family name with an underscore, so the test quotes it. The live page loaded the regular
+  // KaTeX face and Inter (for its menus); the bold face was never needed.
+  Object.defineProperty(document,'fonts',{configurable:true,value:Object.assign([{family:'KaTeX_Main',style:'normal',weight:'400',status:'loaded'},{family:'KaTeX_Main',style:'normal',weight:'700',status:'unloaded'},{family:'Inter',style:'normal',weight:'400',status:'loaded'}],{ready:Promise.resolve()})});
+  const fetched=vi.spyOn(globalThis,'fetch').mockImplementation(async url=>({ok:true,blob:async()=>new Blob(['font:'+url],{type:'font/woff2'})}));
+  try{
+   const {html}=await livePrintJob(node,{title:'',paper:'A4',pageNumber:'none'},{count:2,metrics:pageMetrics({paper:'A4'})}),font=`data:font/woff2;base64,${btoa('font:'+at('/assets/KaTeX_Main-Regular.woff2'))}`;
+   expect(fetched.mock.calls.map(([url])=>String(url))).toEqual([at('/assets/KaTeX_Main-Regular.woff2')]);
+   expect(html.split(font)).toHaveLength(2);expect(html).not.toContain(at('/assets/KaTeX_Main-Regular.woff2'));
+   expect(html).toContain(at('/assets/KaTeX_Main-Bold.woff2'));expect(html).toContain(at('/assets/inter.woff2'));
+  }finally{fetched.mockRestore();delete document.fonts;style.remove()}
+ });
 });

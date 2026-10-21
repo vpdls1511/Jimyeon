@@ -1,7 +1,7 @@
 import {act} from 'react';
 import {beforeAll,describe,expect,it,vi} from 'vitest';
 import {openDB} from 'idb';
-import {saveDocument,emptyDocument} from '../src/storage';
+import {saveDocument,emptyDocument,listRevisions} from '../src/storage';
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const doc=(title,content,extra={})=>({...emptyDocument(),...extra,title,blocks:[{type:'paragraph',content}]});
 const view=()=>document.querySelector('.ProseMirror'),body=()=>view().textContent,title=()=>document.querySelector('#document-title').value;
@@ -93,5 +93,15 @@ describe('importing other files',()=>{
   }
   await importDocument(decorated('M 기획서'));expect(locked()).not.toBeNull();expect(icon()).not.toBeNull();expect(cover()).not.toBeNull();
   await wait(400);expect(await stored()).toMatchObject({locked:true,icon:'📄',paper:'A3'});
+ });
+ it('adds a revision of the previous document only when the import succeeds',async()=>{
+  await importDocument(doc('N 기획서','N 본문'));
+  const before=await listRevisions();
+  await importFile('깨진 문서.jimyeon','{"broken');await vi.waitFor(()=>expect(toast()).toBe('문서 파일이 손상되었거나 형식이 올바르지 않습니다.'));
+  const after=await listRevisions();expect(after.length).toBe(before.length);expect(after).toEqual(before);expect(title()).toBe('N 기획서');expect(body()).toBe('N 본문');
+  await importDocument(doc('O 이력서','O 본문'));
+  expect((await listRevisions())[0].doc.title).toBe('N 기획서');
+  await importFile('P 회의록.md','# P 본문');await vi.waitFor(()=>expect(title()).toBe('P 회의록'));
+  expect((await listRevisions())[0].doc.title).toBe('O 이력서');
  });
 });
