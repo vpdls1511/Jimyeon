@@ -117,7 +117,7 @@ describe('PDF uses the live page layout',()=>{
  });
  it('records the document title in the print html head and escapes it',async()=>{
   const metrics=pageMetrics({paper:'A4'}),title=async t=>new DOMParser().parseFromString((await livePrintJob(source(),{title:t,paper:'A4'},{count:1,metrics})).html,'text/html').head.querySelector('title')?.textContent;
-  expect(await title('보고서 <b>&"1"')).toBe('보고서 <b>&"1"');expect(await title('')).toBe('제목 없음');
+  expect(await title('보고서 <b>&"1"')).toBe('보고서 <b>&"1"');expect(await title('')).toBe('문서');
   expect((await livePrintJob(source(),{title:'</title><script>x</script>',paper:'A4'},{count:1,metrics})).html).not.toContain('<script>x');
  });
  it('cuts the same live canvas into physical sheets without reflow and emits per-page numbering',async()=>{

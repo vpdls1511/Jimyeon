@@ -123,7 +123,7 @@ export async function livePrintJob(source,meta,layout){
   footer.textContent=`${index+1}/${layout.count}`;
   return `<section class="printed-sheet">${content.outerHTML}<div class="printed-margin" style="top:0;height:${p.top}px"></div><div class="printed-margin" style="bottom:0;height:${p.bottom}px"></div>${p.pageNumber==='none'?'':footer.outerHTML}</section>`;
  });
- return {paper:p.paper,pageCount:layout.count,html:`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${escape(meta.title||'제목 없음')}</title><base href="${escape(new URL('/',location.href).href)}"><style>${await inlineFonts(collectStyles(document,{activeMediaOnly:true}),frozen)}</style><style>
+ return {paper:p.paper,pageCount:layout.count,html:`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${escape(meta.title||'문서')}</title><base href="${escape(new URL('/',location.href).href)}"><style>${await inlineFonts(collectStyles(document,{activeMediaOnly:true}),frozen)}</style><style>
  @page{size:${size.width}mm ${size.height}mm;margin:0}
  html,body{margin:0!important;padding:0!important;background:#fff!important;width:${p.width}px!important;overflow:visible!important}
  .printed-sheet{width:${p.width}px;height:${p.height}px;overflow:hidden;position:relative;break-after:page;page-break-after:always;background:#fff;color:#37352f}
