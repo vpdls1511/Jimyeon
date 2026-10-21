@@ -84,6 +84,29 @@ describe('PDF uses the live page layout',()=>{
   const copy=await freezeLiveSource(node,{title:'독립된 페이지 제목',titleFontSize:42,fontSize:12}),printed=copy.querySelector('#document-title');
   expect(printed.tagName).toBe('DIV');expect(printed.style.fontSize).toBe('56px');expect(printed.style.height).toBe('135px');expect(printed.textContent).toBe('독립된 페이지 제목');
  });
+ it('prints embeds, audio and unloaded videos as link cards in their measured boxes instead of players',async()=>{
+  const node=source(),host=document.createElement('div'),embed=document.createElement('div'),editor=BlockNoteEditor.create({schema,initialContent:[{type:'video',props:{url:'data:video/mp4;base64,AAAA',name:'clip.mp4'}},{type:'audio',props:{url:'https://example.com/a.mp3'}}]});
+  embed.className='web-block';embed.innerHTML='<iframe title="임베드" src="https://example.com/embed" style="height:380px"></iframe>';node.append(host,embed);editor.mount(host);
+  try{
+   node.querySelector('video').style.height='225px';node.querySelector('audio').style.height='54px';
+   const before=node.outerHTML,copy=await freezeLiveSource(node,{title:''}),cards=[...copy.querySelectorAll('.print-media-card')];
+   expect(copy.querySelector('iframe,video,audio')).toBeNull();
+   expect(cards.map(card=>card.textContent)).toEqual(['영상 · clip.mp4','오디오 · https://example.com/a.mp3','외부 임베드 · https://example.com/embed']);
+   expect(cards.map(card=>card.style.height)).toEqual(['225px','54px','380px']);expect(cards[2].querySelector('a').href).toBe('https://example.com/embed');
+   expect(node.outerHTML).toBe(before);
+  }finally{editor._tiptapEditor.destroy()}
+ });
+ it('prints a loaded video as its current frame, falling back to a card when the frame cannot be read',async()=>{
+  const node=source(),video=document.createElement('video');video.src='data:video/mp4;base64,AAAA';video.style.cssText='width:400px;height:225px';node.append(video);
+  for(const [key,value] of Object.entries({readyState:4,videoWidth:640,videoHeight:360}))Object.defineProperty(video,key,{value});
+  const context={drawImage:vi.fn()},getContext=vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(context),toDataURL=vi.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('data:image/jpeg;base64,ZnJhbWU=');
+  try{
+   const frame=(await freezeLiveSource(node,{title:''})).querySelector('img');
+   expect(frame.src).toBe('data:image/jpeg;base64,ZnJhbWU=');expect(frame.style.height).toBe('225px');expect(context.drawImage).toHaveBeenCalledWith(video,0,0);
+   toDataURL.mockImplementation(()=>{throw new DOMException('cross-origin frame','SecurityError')});
+   const copy=await freezeLiveSource(node,{title:''});expect(copy.querySelector('img,video')).toBeNull();expect(copy.querySelector('.print-media-card').textContent).toBe('영상');
+  }finally{getContext.mockRestore();toDataURL.mockRestore()}
+ });
  it('cuts the same live canvas into physical sheets without reflow and emits per-page numbering',async()=>{
   const metrics=pageMetrics({paper:'A4',pageNumber:'left'}),job=await livePrintJob(source(),{title:'제목',paper:'A4',pageNumber:'left'},{count:2,metrics});
   const doc=new DOMParser().parseFromString(job.html,'text/html');expect(doc.querySelectorAll('.printed-sheet')).toHaveLength(2);expect([...doc.querySelectorAll('.printed-page-number')].map(n=>n.textContent)).toEqual(['1/2','2/2']);expect(parseFloat(doc.querySelectorAll('.frozen-document')[1].style.top)).toBeCloseTo(-metrics.height-PAGE_GAP);expect(job.pageCount).toBe(2);expect(job.html).toContain('210mm 297mm');
