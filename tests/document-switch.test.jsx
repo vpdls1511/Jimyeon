@@ -10,13 +10,13 @@ const stored=async()=>{const db=await openDB('local-notion-editor',1);try{return
 const savedText=saved=>saved.blocks.map(b=>(b.content||[]).map(c=>c.text).join('')).join('\n');
 async function undo(){await act(async()=>{view().dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true,cancelable:true}))})}
 async function menu(label){await act(async()=>document.querySelector('[aria-label="문서 메뉴"]').click());await act(async()=>[...document.querySelectorAll('.document-menu button')].find(b=>b.textContent.includes(label)).click())}
-// Each import uses a new title so waiting for it proves the switch finished.
 async function importFile(name,text){
  const input=document.querySelector('input[type="file"][accept*=".jimyeon"]');
  // jsdom File has no text(); openFile only reads the name and text.
  Object.defineProperty(input,'files',{configurable:true,value:[{name,text:async()=>text}]});
  await act(async()=>{input.dispatchEvent(new Event('change',{bubbles:true}))});
 }
+// Each import uses a new title so waiting for it proves the switch finished.
 async function importDocument(value){
  await importFile(value.title+'.jimyeon',JSON.stringify(value));
  await vi.waitFor(()=>expect(title()).toBe(value.title));expect(body()).toBe(value.blocks[0].content);
