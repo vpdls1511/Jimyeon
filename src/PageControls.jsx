@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {pageSettings} from './page-settings';
+import {minNumberMargin,pageSettings} from './page-settings';
 import {NumberField,BlockSpacingControls} from './format-controls';
 
 export function PageControls({editor,meta,patch,zoom,setZoom,count,state,pdfBusy,exportPDF}){
@@ -23,9 +23,9 @@ export function PageControls({editor,meta,patch,zoom,setZoom,count,state,pdfBusy
     <NumberField label="기본 블록 간격" value={settings.blockGap} min={0} max={48} step={1} unit="pt" onCommit={blockGap=>apply({blockGap})}/>
    </div><label className="document-link-color">기본 링크 색상<input aria-label="기본 링크 색상" type="color" value={settings.linkColor} onChange={e=>apply({linkColor:e.target.value})}/><span>{settings.linkColor}</span></label>
    <p>기본 블록 간격은 각 블록 아래에 적용합니다. 개별 블록에서 지정한 여백·링크 색상이 우선합니다.</p>
-   <h3>페이지 여백</h3><div className="margin-inputs">{[['marginTop','위 여백'],['marginBottom','아래 여백'],['marginLeft','왼쪽 여백'],['marginRight','오른쪽 여백']].map(([property,label])=><NumberField key={property} label={label} value={settings[property]} min={property==='marginBottom'&&settings.pageNumber!=='none'?8:0} max={60} unit="mm" onCommit={value=>apply({[property]:value})}/>)}</div>
+   <h3>페이지 여백</h3><div className="margin-inputs">{[['marginTop','위 여백'],['marginBottom','아래 여백'],['marginLeft','왼쪽 여백'],['marginRight','오른쪽 여백']].map(([property,label])=><NumberField key={property} label={label} value={settings[property]} min={property==='marginBottom'&&settings.pageNumber!=='none'?minNumberMargin(settings.fontSize):0} max={60} unit="mm" onCommit={value=>apply({[property]:value})}/>)}</div>
    <h3>페이지 번호</h3><select aria-label="페이지 번호 위치" value={settings.pageNumber} onChange={e=>apply({pageNumber:e.target.value})}><option value="none">표시 안 함</option><option value="center">하단 중앙</option><option value="left">하단 왼쪽</option><option value="right">하단 오른쪽</option></select>
-   <p>회색으로 현재 페이지/총 페이지를 표시합니다. 번호 사용 시 아래 여백은 최소 8mm입니다.</p>
+   <p>회색으로 현재 페이지/총 페이지를 표시합니다. 번호 사용 시 아래 여백은 최소 {minNumberMargin(settings.fontSize)}mm입니다.</p>
   </section></>}
  </div>;
 }

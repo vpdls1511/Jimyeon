@@ -7,7 +7,7 @@ import * as locales from '@blocknote/core/locales';
 import {BlockNoteView} from '@blocknote/mantine';
 import {schema} from '../src/blocks';
 import {emptyDocument,migrateDocument} from '../src/document';
-import {footerStyle,gapBefore,pageMetrics,pageSettings,pageVariables,PAGE_GAP,PX_PER_MM} from '../src/page-settings';
+import {FOOTER_LINE_HEIGHT,footerStyle,gapBefore,pageMetrics,pageSettings,pageVariables,PAGE_GAP,PX_PER_MM} from '../src/page-settings';
 import {livePagination,paginationKey,createLivePaginator} from '../src/live-pagination';
 import {blockSelection,selectBlocks,selectedBlockIds} from '../src/block-selection';
 import {freezeLiveSource,livePrintJob} from '../src/live-print';
@@ -43,6 +43,15 @@ describe('physical page settings',()=>{
   const migrated=migrateDocument({fontSize:10});expect(migrated.titleFontSize).toBe(28);expect(migrateDocument({...migrated,fontSize:16}).titleFontSize).toBe(28);
   expect(migrateDocument({small:true}).titleFontSize).toBe(28.5);expect(migrateDocument({fontSize:12,titleFontSize:42}).titleFontSize).toBe(42);
   expect(pageSettings({titleFontSize:200}).titleFontSize).toBe(96);expect(pageSettings({titleFontSize:-1}).titleFontSize).toBe(8);
+ });
+ it('keeps the page number inside the bottom margin for every base font size',()=>{
+  for(const fontSize of [8,12,15,18,24]){
+   const p=pageMetrics({fontSize,marginBottom:0,pageNumber:'center'}),s=footerStyle({fontSize,marginBottom:0,pageNumber:'center'});
+   expect(s.lineHeight).toBe(FOOTER_LINE_HEIGHT);
+   expect(parseFloat(s.bottom)+parseFloat(s.fontSize)*FOOTER_LINE_HEIGHT).toBeLessThanOrEqual(p.bottom+.01);
+  }
+  expect(pageSettings({fontSize:14,pageNumber:'left',marginBottom:0}).marginBottom).toBe(8);
+  expect(pageSettings({fontSize:24,pageNumber:'left',marginBottom:8}).marginBottom).toBe(14);
  });
  it('validates imported settings and reserves footer space only when numbering is enabled',()=>{
   expect(pageSettings({fontSize:100,marginLeft:-3,marginRight:100,pageNumber:'bad'})).toMatchObject({fontSize:24,marginLeft:0,marginRight:60,pageNumber:'none'});

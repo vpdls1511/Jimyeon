@@ -58,7 +58,7 @@ export async function livePrintJob(source,meta,layout){
  .frozen-document{width:${p.width}px!important;pointer-events:none}
  .frozen-document .bn-block-content::after{visibility:hidden!important}
  .frozen-document,.frozen-document *{break-before:auto!important;break-after:auto!important;break-inside:auto!important;orphans:1;widows:1}
- .printed-page-number{z-index:2;line-height:1.2}
+ .printed-page-number{z-index:2}
  .printed-margin{position:absolute;left:0;right:0;background:#fff;z-index:1}
  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;animation:none!important;transition:none!important}
  </style></head><body>${pages.join('')}</body></html>`};
