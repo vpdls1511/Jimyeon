@@ -3,6 +3,20 @@ import {footerStyle,pageMetrics,PAGE_SIZES} from './page-settings';
 
 const dataURL=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)});
 const videoFrame=video=>{try{const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);return canvas.toDataURL('image/jpeg',.92)}catch{return ''}};
+// The print page has another origin (null in the browser, app://print on the desktop), so it cannot fetch the editor's
+// web fonts. Embed the faces that the printed copy names and the live page loaded, in their first format, once per job.
+async function inlineFonts(css,copy){
+ await document.fonts?.ready;
+ const name=family=>family.trim().replace(/^["']|["']$/g,''),face=(family,style,weight)=>[name(family),style||'normal',{normal:'400',bold:'700'}[weight||'normal']||weight].join('|');
+ const families=new Set([copy,...copy.querySelectorAll('*')].flatMap(el=>(el.style?.fontFamily||'').split(',').map(name))),loaded=new Set([...(document.fonts||[])].filter(font=>font.status==='loaded').map(font=>face(font.family,font.style,font.weight)));
+ for(const sheet of document.styleSheets){let rules=[];try{rules=[...sheet.cssRules]}catch{}for(const rule of rules){
+  const family=rule.type===5&&rule.style.getPropertyValue('font-family'),url=family&&families.has(name(family))&&loaded.has(face(family,rule.style.getPropertyValue('font-style'),rule.style.getPropertyValue('font-weight')))&&rule.style.getPropertyValue('src').match(/url\((['"]?)([^)'"\s]+)\1\)/)?.[2];
+  if(!url||url.startsWith('data:'))continue;
+  const href=new URL(url,sheet.href||document.baseURI).href;
+  try{const response=await fetch(href);if(response.ok)css=css.replaceAll(`url("${href}")`,`url("${await dataURL(await response.blob())}")`)}catch{}
+ }}
+ return css;
+}
 const escape=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 // Keep geometry and typography, without duplicating every inherited UI theme
 // variable on every element and on every printed page.
@@ -109,7 +123,7 @@ export async function livePrintJob(source,meta,layout){
   footer.textContent=`${index+1}/${layout.count}`;
   return `<section class="printed-sheet">${content.outerHTML}<div class="printed-margin" style="top:0;height:${p.top}px"></div><div class="printed-margin" style="bottom:0;height:${p.bottom}px"></div>${p.pageNumber==='none'?'':footer.outerHTML}</section>`;
  });
- return {paper:p.paper,pageCount:layout.count,html:`<!doctype html><html lang="ko"><head><meta charset="utf-8"><base href="${escape(new URL('/',location.href).href)}"><style>${collectStyles(document,{activeMediaOnly:true})}</style><style>
+ return {paper:p.paper,pageCount:layout.count,html:`<!doctype html><html lang="ko"><head><meta charset="utf-8"><base href="${escape(new URL('/',location.href).href)}"><style>${await inlineFonts(collectStyles(document,{activeMediaOnly:true}),frozen)}</style><style>
  @page{size:${size.width}mm ${size.height}mm;margin:0}
  html,body{margin:0!important;padding:0!important;background:#fff!important;width:${p.width}px!important;overflow:visible!important}
  .printed-sheet{width:${p.width}px;height:${p.height}px;overflow:hidden;position:relative;break-after:page;page-break-after:always;background:#fff;color:#37352f}
