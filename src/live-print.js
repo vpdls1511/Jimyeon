@@ -2,6 +2,7 @@ import {collectStyles} from './paper';
 import {footerStyle,PAGE_SIZES} from './page-settings';
 
 const dataURL=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)});
+const videoFrame=video=>{try{const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);return canvas.toDataURL('image/jpeg',.92)}catch{return ''}};
 const escape=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 // Keep geometry and typography, without duplicating every inherited UI theme
 // variable on every element and on every printed page.
@@ -25,6 +26,14 @@ export async function freezeLiveSource(source,meta){
  if(title){const text=document.createElement('div');text.id=title.id;text.style.cssText=title.style.cssText;text.textContent=meta.title||'';title.replaceWith(text)}
  copy.querySelectorAll('select').forEach(select=>{const original=originals[clones.indexOf(select)],label=document.createElement('div');label.style.cssText=select.style.cssText;label.textContent=original?.selectedOptions?.[0]?.textContent||'';select.replaceWith(label)});
  copy.querySelectorAll('[data-content-type="pageBreak"]').forEach(node=>node.style.setProperty('opacity','0','important'));
+ // Players cannot run in a PDF: keep each measured box and show the video's current frame, or a link card.
+ copy.querySelectorAll('iframe,video,audio').forEach(media=>{
+  const original=originals[clones.indexOf(media)],frame=media.tagName==='VIDEO'&&original.readyState>1&&original.videoWidth&&videoFrame(original),src=original.currentSrc||original.src||'',url=/^https?:/i.test(src)?src:'',box=document.createElement(frame?'img':'div');
+  box.style.cssText=media.style.cssText;box.style.setProperty('height',getComputedStyle(original).height);
+  if(frame)box.src=frame;
+  else{const label=document.createElement(url?'a':'div');if(url)label.href=url;label.style.cssText='display:block;padding:14px;font-size:12px;line-height:1.5;color:#555;text-decoration:none;overflow-wrap:anywhere';label.textContent=[{IFRAME:'외부 임베드',VIDEO:'영상',AUDIO:'오디오'}[media.tagName],url||media.closest('[data-name]')?.dataset.name].filter(Boolean).join(' · ');box.className='print-media-card';box.append(label);box.style.setProperty('overflow','hidden');box.style.setProperty('background-color','#f7f7f5');if(box.style.display==='inline')box.style.setProperty('display','inline-block')}
+  media.replaceWith(box);
+ });
  await Promise.all([...copy.querySelectorAll('img')].map(async img=>{
   if(!img.src||img.src.startsWith('data:'))return;
   const url=new URL(img.src,location.href);
