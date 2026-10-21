@@ -96,18 +96,29 @@ describe('PDF uses the live page layout',()=>{
   const metrics=pageMetrics({paper:'A4',pageNumber:'left'}),job=await livePrintJob(source(),{title:'제목',paper:'A4',pageNumber:'left'},{count:2,metrics});
   const doc=new DOMParser().parseFromString(job.html,'text/html');expect(doc.querySelectorAll('.printed-sheet')).toHaveLength(2);expect([...doc.querySelectorAll('.printed-page-number')].map(n=>n.textContent)).toEqual(['1/2','2/2']);expect(parseFloat(doc.querySelectorAll('.frozen-document')[1].style.top)).toBeCloseTo(-metrics.height-PAGE_GAP);expect(job.pageCount).toBe(2);expect(job.html).toContain('210mm 297mm');
  });
+ const hint="글을 입력하거나 '/' 키로 명령어 사용";
+ const shown=node=>{for(let el=node.nodeType===1?node:node.parentElement;el;el=el.parentElement){if(el.style.display==='none')return false;if(el.style.visibility)return el.style.visibility!=='hidden'}return true};
+ // Mounts the real editor view with the app's Korean hints, as the live page does.
+ async function liveEditor(initialContent){
+  globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+  const editor=BlockNoteEditor.create({schema,dictionary:{...locales.ko,placeholders:{...locales.ko.placeholders,default:hint}},initialContent}),host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+  await act(async()=>root.render(<MantineProvider env="test"><div className="live-document"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}/></div></MantineProvider>));
+  const source=host.querySelector('.live-document');await act(()=>loadMathRenderer());await prepareMath(source);
+  return {editor,source,destroy:()=>{act(()=>root.unmount());editor._tiptapEditor.destroy()}};
+ }
+ async function printPage(source){
+  const job=await livePrintJob(source,{title:'',paper:'A4',pageNumber:'none'},{count:1,metrics:pageMetrics({paper:'A4'})}),doc=new DOMParser().parseFromString(job.html,'text/html'),walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);
+  let text='';for(let node;(node=walker.nextNode());)if(shown(node))text+=node.data+'\n';
+  return {job,doc,text};
+ }
  it('prints neither empty-block hints nor editing controls, keeping their measured boxes for the page cuts',async()=>{
-  globalThis.IS_REACT_ACT_ENVIRONMENT=true;localStorage.setItem('toggle-toggle','true');
-  const hint="글을 입력하거나 '/' 키로 명령어 사용",editor=BlockNoteEditor.create({schema,dictionary:{...locales.ko,placeholders:{...locales.ko.placeholders,default:hint}},initialContent:[{type:'paragraph',content:'본문'},{type:'heading'},{type:'bulletListItem'},{type:'tabs',children:[{type:'tabPanel',props:{label:'첫 탭'},children:[{type:'paragraph',content:'탭 내용'}]}]},{id:'toggle',type:'toggleListItem',content:'토글 제목'},{type:'equation'},{type:'embed'},{type:'image'},{id:'last',type:'paragraph'}]});
-  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
-  const shown=node=>{for(let el=node.nodeType===1?node:node.parentElement;el;el=el.parentElement){if(el.style.display==='none')return false;if(el.style.visibility)return el.style.visibility!=='hidden'}return true};
+  localStorage.setItem('toggle-toggle','true');
+  const {editor,source,destroy}=await liveEditor([{type:'paragraph',content:'본문'},{type:'heading'},{type:'bulletListItem'},{type:'tabs',children:[{type:'tabPanel',props:{label:'첫 탭'},children:[{type:'paragraph',content:'탭 내용'}]}]},{id:'toggle',type:'toggleListItem',content:'토글 제목'},{type:'equation'},{type:'embed'},{type:'image'},{id:'last',type:'paragraph'}]);
   const leftovers=['＋','비어 있는 토글입니다','완료','입력하세요','링크 삽입','이미지 추가'];
   try{
-   await act(async()=>root.render(<MantineProvider env="test"><div className="live-document"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}/></div></MantineProvider>));
-   const source=host.querySelector('.live-document');await act(()=>loadMathRenderer());await prepareMath(source);act(()=>editor.setTextCursorPosition('last'));
+   act(()=>editor.setTextCursorPosition('last'));
    for(const text of leftovers)expect(source.textContent).toContain(text);expect(source.querySelector('[data-is-empty-and-focused]')).not.toBeNull();
-   const job=await livePrintJob(source,{title:'',paper:'A4',pageNumber:'none'},{count:1,metrics:pageMetrics({paper:'A4'})}),doc=new DOMParser().parseFromString(job.html,'text/html'),walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);
-   let printed='';for(let node;(node=walker.nextNode());)if(shown(node))printed+=node.data+'\n';
+   const {job,doc,text:printed}=await printPage(source);
    expect(printed).toContain('본문');expect(printed).toContain('첫 탭');expect(printed).toContain('토글 제목');
    for(const text of leftovers)expect(printed).not.toContain(text);
    expect([...doc.querySelectorAll('.frozen-document textarea,.frozen-document input:not([type=checkbox])')].filter(shown)).toEqual([]);
@@ -117,6 +128,20 @@ describe('PDF uses the live page layout',()=>{
    expect(job.html).toContain(JSON.stringify(hint));
    const sheet=document.createElement('style');sheet.textContent=[...doc.querySelectorAll('style')].map(style=>style.textContent).join('\n');document.head.append(sheet);const rules=[...sheet.sheet.cssRules];sheet.remove();
    expect(rules.some(rule=>/\.bn-block-content::?after$/.test(rule.selectorText)&&rule.style.getPropertyValue('visibility')==='hidden'&&rule.style.getPropertyPriority('visibility')==='important')).toBe(true);
-  }finally{act(()=>root.unmount());editor._tiptapEditor.destroy();localStorage.clear()}
+  }finally{destroy();localStorage.clear()}
+ });
+ it('prints an equation being edited as its preview only, and leaves out the empty contents and empty expression hints',async()=>{
+  const {source,destroy}=await liveEditor([{type:'tableOfContents'},{id:'saved',type:'equation',props:{expression:'x^2'}},{id:'cleared',type:'equation',props:{expression:'y'}}]);
+  const leftovers=['제목을 추가하면','완료','입력하세요'];
+  try{
+   for(const id of ['saved','cleared'])await act(async()=>source.querySelector(`[data-id="${id}"] .math-button`).click());
+   const input=source.querySelector('[data-id="cleared"] textarea');
+   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'');input.dispatchEvent(new Event('input',{bubbles:true}))});
+   for(const text of leftovers)expect(source.textContent).toContain(text);
+   const {doc,text}=await printPage(source);
+   for(const leftover of leftovers)expect(text).not.toContain(leftover);
+   expect(shown(doc.querySelector('.frozen-document [data-id="saved"] .equation-preview .katex'))).toBe(true);
+   expect([...doc.querySelectorAll('.frozen-document textarea')].filter(shown)).toEqual([]);
+  }finally{destroy()}
  });
 });
