@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it} from 'vitest';
-import {BlockNoteEditor} from '@blocknote/core';
+import {BlockNoteEditor,getNodeById} from '@blocknote/core';
 import {NodeSelection} from 'prosemirror-state';
 import {schema,safeWebUrl} from '../src/blocks';
 import {notionBehavior} from '../src/notion-behavior';
@@ -67,4 +67,28 @@ describe('Notion input conventions through the actual input-rule pipeline',()=>{
  for(const [input,typeName,props] of [['- ','bulletListItem',{}],['[]','checkListItem',{}],['> ','toggleListItem',{}],['" ','quote',{}],['# ','heading',{level:1}],['#### ','heading',{level:4}],['1. ','numberedListItem',{}],['---','divider',{textColor:'default'}]])it(`${input} becomes ${typeName}`,()=>{const e=create([{id:'a',type:'paragraph'}]);e.setTextCursorPosition('a','start');type(e,input);expect(e.document[0].type).toBe(typeName);expect(e.document[0].props).toMatchObject(props)});
  it('keeps tab panels as document children with independent content',()=>{const e=create([{type:'tabs',children:[{type:'tabPanel',props:{label:'One'},children:[{type:'paragraph',content:'A'}]},{type:'tabPanel',props:{label:'Two'},children:[{type:'paragraph',content:'B'}]}]}],false);expect(e.document[0].children[1].children[0].content[0].text).toBe('B')});
 
+});
+describe('block type shortcuts through the editor keymap',()=>{
+ // jsdom is not a Mac, so Mod is Ctrl and both Mod-Alt and Mod-Shift numbers are bound.
+ const press=(e,key,modifiers)=>{const view=e.prosemirrorView,event=new KeyboardEvent('keydown',{key,code:'Digit'+key,ctrlKey:true,...modifiers,bubbles:true,cancelable:true});view.someProp('handleKeyDown',handler=>handler(view,event))};
+ const pressAll=e=>{for(const key of '012345678')for(const modifiers of [{altKey:true},{shiftKey:true}])press(e,key,modifiers)};
+ it('still converts a text block',()=>{
+  const e=create();e.setTextCursorPosition('a','end');press(e,'1',{altKey:true});expect(e.getBlock('a')).toMatchObject({type:'heading',props:{level:1}});
+  press(e,'5',{shiftKey:true});expect(e.getBlock('a').type).toBe('bulletListItem');expect(e.getBlock('a').content[0].text).toBe('hello');
+ });
+ it('still converts a code block, whose content is plain text',()=>{
+  for(const [key,modifiers,type] of [['1',{altKey:true},'heading'],['0',{altKey:true},'paragraph'],['5',{shiftKey:true},'bulletListItem']]){
+   const e=create([{id:'c',type:'codeBlock',content:'let x=1'}]);e.setTextCursorPosition('c','end');press(e,key,modifiers);
+   expect(e.getBlock('c').type).toBe(type);expect(e.getBlock('c').content.map(c=>c.text).join('')).toBe('let x=1');
+  }
+ });
+ it('keeps a table when the cursor is in one of its cells',()=>{
+  const e=create([{id:'t',type:'table',content:{type:'tableContent',rows:[{cells:['A','B']}]}}]);e.setTextCursorPosition('t','start');expect(e.getTextCursorPosition().block.id).toBe('t');
+  const before=e.document;pressAll(e);expect(e.document).toEqual(before);
+ });
+ it('keeps a selected image',()=>{
+  const e=create([{id:'i',type:'image',props:{url:'data:image/png;base64,YQ=='}}]),view=e.prosemirrorView;
+  view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc,getNodeById('i',view.state.doc).posBeforeNode+1)));expect(e.getTextCursorPosition().block.id).toBe('i');
+  const before=e.document;pressAll(e);expect(e.document).toEqual(before);
+ });
 });
