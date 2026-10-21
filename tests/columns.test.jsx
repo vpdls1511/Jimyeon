@@ -1,5 +1,7 @@
 import {afterEach,describe,expect,it} from 'vitest';
 import {BlockNoteEditor,getNodeById} from '@blocknote/core';
+import {SideMenuExtension} from '@blocknote/core/extensions';
+import {TextSelection} from 'prosemirror-state';
 import {schema} from '../src/blocks';
 import {arrangeColumns,canArrangeColumns,columnDropTarget,insertColumnRow,moveBeside,nestedColumnDropCursor} from '../src/columns';
 import {blockSelection,selectBlocks,selectedBlockIds} from '../src/block-selection';
@@ -60,5 +62,34 @@ describe('independent rows inside columns',()=>{
   content.getBoundingClientRect=()=>({left:200,right:600,top:40,bottom:65,width:400,height:25});view.posAtCoords=()=>({pos:found.posBeforeNode+2,inside:found.posBeforeNode});
   const event={clientX:595,clientY:50};expect(columnDropTarget(event,view)).toMatchObject({id:'tel',side:'right',pos:found.posBeforeNode});expect(nestedColumnDropCursor.hooks.computeDropPosition({event,view,defaultPosition:null})).toEqual({pos:found.posBeforeNode,orientation:'block-vertical-right'});
   expect(columnDropTarget({...event,clientY:150},view)).toBeNull();
+ });
+});
+describe('dragging onto the side edge of a block',()=>{
+ // jsdom has no layout or DataTransfer: Source sits above y=40 and Target's line spans x 100-700, y 40-60.
+ function setup(){
+  const e=create([p('source','hello world'),p('target','target')]),view=e.prosemirrorView,at=id=>getNodeById(id,view.state.doc).posBeforeNode;
+  const box=(left,top,right,bottom)=>()=>({left,top,right,bottom,width:right-left,height:bottom-top,x:left,y:top});
+  view.dom.querySelector('.bn-block-group').getBoundingClientRect=box(0,0,800,100);
+  const target=view.nodeDOM(at('target')).querySelector('.bn-block-content');target.getBoundingClientRect=box(100,40,700,60);
+  view.posAtCoords=({top})=>top<40?{pos:at('source')+8,inside:-1}:{pos:at('target')+2,inside:-1};
+  const data=new Map(),dataTransfer={files:[],get types(){return [...data.keys()]},getData:type=>data.get(type)??'',setData:(type,value)=>data.set(type,value),clearData:()=>data.clear(),setDragImage(){},effectAllowed:'',dropEffect:''};
+  const fire=(element,type,clientX,clientY)=>{const event=new Event(type,{bubbles:true,cancelable:true});Object.assign(event,{clientX,clientY,dataTransfer});element.dispatchEvent(event)};
+  const drop=()=>{fire(target,'drop',105,50);fire(target,'dragend',105,50)};
+  const cursor=()=>nestedColumnDropCursor.hooks.computeDropPosition({event:{clientX:105,clientY:50},view,defaultPosition:'default'});
+  return {e,view,at,fire,drop,cursor,source:view.nodeDOM(at('source')).querySelector('.bn-block-content')};
+ }
+ const texts=e=>e.document.map(b=>[b.type,b.content?.map(c=>c.text).join('')]);
+ it('moves only the selected text and keeps the rest of its block',()=>{
+  const {e,view,at,fire,drop,cursor,source}=setup();
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc,at('source')+8,at('source')+13)));
+  fire(source,'dragstart',150,10);expect(cursor()).toBe('default');drop();
+  expect(texts(e)).toEqual([['paragraph','hello '],['paragraph','worldtarget']]);expect(e.prosemirrorState.doc.check()).toBeUndefined();
+ });
+ it('still places a block dragged by its handle in a new column',()=>{
+  const {e,view,at,fire,drop,cursor}=setup(),handle=document.createElement('div');view.dom.parentElement.append(handle);
+  handle.addEventListener('dragstart',event=>e.getExtension(SideMenuExtension).blockDragStart(event,e.getBlock('source')));
+  fire(handle,'dragstart',0,10);expect(cursor()).toEqual({pos:at('target'),orientation:'block-vertical-left'});drop();
+  expect(e.document).toHaveLength(1);expect(e.document[0].type).toBe('columnList');
+  expect(e.document[0].children.map(c=>c.children.map(b=>b.id))).toEqual([['source'],['target']]);expect(e.getBlock('source').content[0].text).toBe('hello world');
  });
 });
