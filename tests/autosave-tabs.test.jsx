@@ -49,6 +49,6 @@ it('does not overwrite a newer document from another tab when this tab saves a d
   await act(async()=>document.querySelector('#save-json').click());
   await act(async()=>document.querySelector('form[aria-labelledby="save-document-title"]').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
   await vi.waitFor(()=>expect(URL.createObjectURL).toHaveBeenCalledOnce());
-  await wait(400);expect(saveDocument).not.toHaveBeenCalled();expect(text(await stored())).toBe('다른 탭에서 쓴 최신 내용');
+  await settle();expect(saveDocument).not.toHaveBeenCalled();expect(text(await stored())).toBe('다른 탭에서 쓴 최신 내용');
  }finally{delete URL.createObjectURL;delete URL.revokeObjectURL}
 });
