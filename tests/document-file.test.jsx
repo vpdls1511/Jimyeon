@@ -12,3 +12,14 @@ it('round-trips document layout and images and rejects unrelated JSON documents'
  expect(parseDocumentFile(JSON.stringify(doc))).toEqual(doc);
  for(const text of ['null','{}','{"blocks":[]}','invalid'])expect(()=>parseDocumentFile(text)).toThrow();
 });
+
+it('explains a truncated or corrupted document file in Korean',()=>{
+ const text=JSON.stringify({...emptyDocument(),title:'이력서'});
+ for(const broken of [text.slice(0,67),'invalid'])expect(()=>parseDocumentFile(broken)).toThrow('문서 파일이 손상되었거나 형식이 올바르지 않습니다.');
+});
+
+it('replaces document properties of the wrong type with their defaults',()=>{
+ const doc=parseDocumentFile(JSON.stringify({...emptyDocument(),title:{ko:'이력서'},icon:{emoji:'📄'},cover:42,coverPosition:'30',locked:'yes',font:3,paper:'A3',blocks:[{type:'paragraph',content:'본문'}]}));
+ expect(doc).toMatchObject({title:'',icon:'',cover:'',coverPosition:50,locked:false,font:'default',paper:'A3'});
+ expect(doc.blocks[0].content).toBe('본문');
+});

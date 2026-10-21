@@ -7,7 +7,6 @@ Jimyeon uses the following major packages. The full dependency versions and regi
 | BlockNote core, React, Mantine, code-block | MPL-2.0 |
 | BlockNote XL multi-column | GPL-3.0-only (GPL option selected) |
 | React, Mantine, Vite, Vitest, ProseMirror, TipTap, KaTeX | MIT |
-| Paged.js | MIT |
 | Puppeteer Core | Apache-2.0 |
 | idb | ISC |
 | Lucide | ISC |
