@@ -5,7 +5,7 @@ import {emptyDocument,listRevisions} from '../src/storage';
 import {launchApp,settle,chooseFile} from './launch-app';
 const doc=(title,content,extra={})=>({...emptyDocument(),...extra,title,blocks:[{type:'paragraph',content}]});
 const view=()=>document.querySelector('.ProseMirror'),body=()=>view().textContent,title=()=>document.querySelector('#document-title').value;
-const stored=async()=>{const db=await openDB('local-notion-editor',1);try{return await db.get('documents','current')}finally{db.close()}};
+const stored=async()=>{const db=await openDB('jimyeon',1);try{return await db.get('documents','current')}finally{db.close()}};
 const toast=()=>document.querySelector('.toast')?.textContent;
 const savedText=saved=>saved.blocks.map(b=>(b.content||[]).map(c=>c.text).join('')).join('\n');
 async function undo(){await act(async()=>{view().dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true,cancelable:true}))})}

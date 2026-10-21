@@ -3,7 +3,7 @@ import {createRequire} from 'node:module';
 import {mkdtemp,readFile,writeFile,rm,readdir,chmod} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {emptyDocument} from '../src/document';
+import {emptyDocument,LEGACY_ID} from '../src/document';
 const require=createRequire(import.meta.url);
 const {createDraftStore}=require('../electron/draft-store.cjs');
 const {atomicWrite}=require('../electron/files.cjs');
@@ -27,6 +27,14 @@ it('keeps save order and the last valid backup when repairing a corrupt primary'
  const recovered=createDraftStore(folder);expect(await recovered.load()).toEqual({...a,restoredFromPrevious:true});await recovered.save(a);
  expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8'))).toEqual(a);
  expect(JSON.parse(await readFile(path.join(folder,'document.previous.json'),'utf8'))).toEqual(a);
+}));
+it('opens drafts saved with the previous format identifier and saves new drafts with the Jimyeon one',()=>fixture(async folder=>{
+ const legacy={...emptyDocument(),format:LEGACY_ID,title:'이전 형식 초안'},doc={...emptyDocument(),title:'새 형식 초안'};
+ await atomicWrite(path.join(folder,'document.json'),'broken');await atomicWrite(path.join(folder,'document.previous.json'),JSON.stringify(legacy));
+ expect(await createDraftStore(folder).load()).toEqual({...legacy,restoredFromPrevious:true});
+ await atomicWrite(path.join(folder,'document.json'),JSON.stringify(legacy));const store=createDraftStore(folder);expect(await store.load()).toEqual(legacy);
+ expect(doc.format).toBe('jimyeon');await store.save(doc);
+ expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8'))).toEqual(doc);expect(JSON.parse(await readFile(path.join(folder,'document.previous.json'),'utf8'))).toEqual(legacy);
 }));
 it('keeps unreadable drafts for manual recovery before autosave replaces them',()=>fixture(async folder=>{
  await writeFile(path.join(folder,'document.json'),'{"title":"잘린 문서');await writeFile(path.join(folder,'document.previous.json'),'{"title":"잘린 이전 문서');

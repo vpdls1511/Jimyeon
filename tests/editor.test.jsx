@@ -2,14 +2,14 @@ import {afterEach,describe,expect,it} from 'vitest';
 import {BlockNoteEditor,getNodeById} from '@blocknote/core';
 import {NodeSelection} from 'prosemirror-state';
 import {schema,safeWebUrl} from '../src/blocks';
-import {notionBehavior} from '../src/notion-behavior';
+import {editingConventions} from '../src/editing-conventions';
 import {cloneBlocks,updateSelectedBlocks,setDividerOpacity} from '../src/menus';
 import {selectBlocks} from '../src/block-selection';
 import {searchExtension,setSearch,replaceSearch,searchKey} from '../src/search';
 import {freezeLiveSource} from '../src/live-print';
 import {saveDocument,loadDocument,emptyDocument,revision,listRevisions} from '../src/storage';
 let editors=[];
-function create(blocks=[{id:'a',type:'paragraph',content:'hello'}],mount=true){const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[notionBehavior,searchExtension],tables:{splitCells:true,cellBackgroundColor:true,cellTextColor:true,headers:true},tabBehavior:'prefer-indent'});const root=document.createElement('div');document.body.append(root);if(mount)editor.mount(root);editors.push({editor,root});return editor}
+function create(blocks=[{id:'a',type:'paragraph',content:'hello'}],mount=true){const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[editingConventions,searchExtension],tables:{splitCells:true,cellBackgroundColor:true,cellTextColor:true,headers:true},tabBehavior:'prefer-indent'});const root=document.createElement('div');document.body.append(root);if(mount)editor.mount(root);editors.push({editor,root});return editor}
 afterEach(()=>{for(const {editor,root} of editors){editor._tiptapEditor.destroy();root.remove()}editors=[]});
 describe('document semantics',()=>{
  it('supports each native editor block and custom content without a page model',()=>{const types=Object.keys(schema.blockSchema);for(const t of ['paragraph','heading','bulletListItem','numberedListItem','checkListItem','toggleListItem','quote','divider','table','codeBlock','image','video','audio','file','column','columnList','callout','equation','bookmark','embed','tableOfContents','button'])expect(types).toContain(t)});
@@ -62,7 +62,7 @@ describe('local persistence',()=>{
  it('keeps recoverable snapshots',async()=>{const doc=emptyDocument();await revision(doc);expect((await listRevisions())[0].doc).toEqual(doc)});
  it('rejects executable and local-file embed URLs',()=>{expect(safeWebUrl('javascript:alert(1)')).toBeNull();expect(safeWebUrl('file:///etc/passwd')).toBeNull();expect(safeWebUrl('https://example.com')).toBe('https://example.com/')});
 });
-describe('Notion input conventions through the actual input-rule pipeline',()=>{
+describe('Input conventions through the actual input-rule pipeline',()=>{
  function type(e,text){for(const char of text){const view=e._tiptapEditor.view,{from,to}=view.state.selection;const handled=view.someProp('handleTextInput',handler=>handler(view,from,to,char));if(!handled)view.dispatch(view.state.tr.insertText(char,from,to))}}
  for(const [input,typeName,props] of [['- ','bulletListItem',{}],['[]','checkListItem',{}],['> ','toggleListItem',{}],['" ','quote',{}],['# ','heading',{level:1}],['#### ','heading',{level:4}],['1. ','numberedListItem',{}],['---','divider',{textColor:'default'}]])it(`${input} becomes ${typeName}`,()=>{const e=create([{id:'a',type:'paragraph'}]);e.setTextCursorPosition('a','start');type(e,input);expect(e.document[0].type).toBe(typeName);expect(e.document[0].props).toMatchObject(props)});
  it('keeps tab panels as document children with independent content',()=>{const e=create([{type:'tabs',children:[{type:'tabPanel',props:{label:'One'},children:[{type:'paragraph',content:'A'}]},{type:'tabPanel',props:{label:'Two'},children:[{type:'paragraph',content:'B'}]}]}],false);expect(e.document[0].children[1].children[0].content[0].text).toBe('B')});

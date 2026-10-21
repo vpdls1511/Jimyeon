@@ -2,14 +2,14 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 import {BlockNoteEditor} from '@blocknote/core';
 import {Selection} from 'prosemirror-state';
 import {schema} from '../src/blocks';
-import {notionBehavior} from '../src/notion-behavior';
+import {editingConventions} from '../src/editing-conventions';
 import {blockSelection,BlockRangeSelection,selectBlocks,selectedBlockIds} from '../src/block-selection';
 import {duplicate} from '../src/menus';
 import {freezeLiveSource} from '../src/live-print';
 
 let editors=[];
 function create(blocks){
- const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[notionBehavior,blockSelection()]});
+ const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[editingConventions,blockSelection()]});
  const panel=document.createElement('section');panel.className='editing-panel';
  const root=document.createElement('div');panel.append(root);document.body.append(panel);editor.mount(root);
  editors.push({editor,panel});return {editor,panel,view:editor.prosemirrorView};

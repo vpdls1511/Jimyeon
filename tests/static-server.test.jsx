@@ -34,3 +34,14 @@ describe('static server bad paths',()=>{
     expect((await get('/..%2f..%2fpackage.json')).status).toBe(403);
   });
 });
+
+describe('PDF export size limit',()=>{
+  it('answers a job over 100MB with the size message instead of rendering',async()=>{
+    const chunk=Buffer.alloc(1024*1024,32),{status,body}=await new Promise((resolve,reject)=>{
+      const req=http.request({host:'127.0.0.1',port,path:'/api/export-pdf',method:'POST',headers:{Origin:`http://127.0.0.1:${port}`,'Content-Type':'application/json'}},res=>{let text='';res.on('data',c=>text+=c);res.on('end',()=>resolve({status:res.statusCode,body:text}))});
+      req.on('error',error=>error.code==='EPIPE'||error.code==='ECONNRESET'?undefined:reject(error));
+      for(let i=0;i<101;i++)req.write(chunk);req.end();
+    });
+    expect(status).toBe(500);expect(JSON.parse(body).error).toContain('최대 100MB');
+  },30000);
+});

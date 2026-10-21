@@ -2,20 +2,24 @@ import {pageSettings} from './page-settings';
 import {dividerOpacity} from './divider-opacity';
 
 export const DOCUMENT_EXTENSION = '.jimyeon';
+export const FORMAT_ID = 'jimyeon';
+// Documents, desktop drafts and browser storage from earlier versions carry this identifier.
+// It is only read for compatibility and never written again.
+export const LEGACY_ID = 'local-notion-editor';
 // Keep legacy backups readable while all new exports use the Jimyeon extension.
 export const isDocumentFile = name => /\.(?:jimyeon|json)$/i.test(name);
 export function parseDocumentFile(text) {
   let input;
   try { input = JSON.parse(text); }
   catch { throw Error('문서 파일이 손상되었거나 형식이 올바르지 않습니다.'); }
-  if (!input || input.format !== 'local-notion-editor' || !Array.isArray(input.blocks)) {
+  if (!input || ![FORMAT_ID, LEGACY_ID].includes(input.format) || !Array.isArray(input.blocks)) {
     throw Error('이 에디터에서 저장한 문서를 선택하세요.');
   }
   return migrateDocument(input);
 }
 
 export const emptyDocument = () => ({
-  format: 'local-notion-editor', version: 2,
+  format: FORMAT_ID, version: 2,
   title: '', icon: '', cover: '', coverPosition: 50,
   wide: false, small: false, font: 'default', theme: 'light',
   locked: false, paper: 'A4',fontSize:12,titleFontSize:30,lineHeight:1.5,letterSpacing:0,blockGap:0,linkColor:'#2365a8',marginTop:16,marginBottom:16,marginLeft:16,marginRight:16,pageNumber:'none',blocks: [{ type: 'paragraph', content: [] }],
