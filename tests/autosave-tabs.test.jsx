@@ -1,0 +1,45 @@
+import {act} from 'react';
+import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
+import {openDB} from 'idb';
+import {saveDocument,emptyDocument} from '../src/storage';
+vi.mock('../src/storage',async importOriginal=>{const actual=await importOriginal();return {...actual,saveDocument:vi.fn(actual.saveDocument)}});
+globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+const doc=text=>({...emptyDocument(),title:'계약서',blocks:[{type:'paragraph',content:[{type:'text',text,styles:{}}]}]});
+const view=()=>document.querySelector('.ProseMirror'),body=()=>view().textContent;
+const wait=ms=>act(()=>new Promise(resolve=>setTimeout(resolve,ms)));
+const text=saved=>saved.blocks.map(b=>(b.content||[]).map(c=>c.text).join('')).join('\n');
+const stored=async()=>{const db=await openDB('local-notion-editor',1);try{return await db.get('documents','current')}finally{db.close()}};
+// Another tab writes through its own connection, exactly like a second editor instance.
+const saveFromOtherTab=async value=>{const db=await openDB('local-notion-editor',1);try{await db.put('documents',value,'current')}finally{db.close()}};
+function hide(){Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));delete document.hidden}
+function edit(value){const tiptap=view().editor;let pos;tiptap.state.doc.descendants((node,p)=>{if(pos===undefined&&node.isText)pos=p});tiptap.view.dispatch(tiptap.state.tr.insertText(value,pos))}
+beforeAll(async()=>{
+ await saveDocument(doc('초안'));saveDocument.mockClear();const root=document.createElement('div');root.id='root';document.body.append(root);
+ await act(async()=>{await import('../src/main.jsx')});await vi.waitFor(()=>expect(body()).toBe('초안'));
+},30000);
+afterEach(()=>saveDocument.mockClear());
+it('does not write the loaded document back on startup, so a save from another tab right after loading survives',async()=>{
+ await saveFromOtherTab(doc('다른 탭에서 방금 저장한 내용'));
+ await wait(400);expect(saveDocument).not.toHaveBeenCalled();expect(text(await stored())).toBe('다른 탭에서 방금 저장한 내용');
+});
+describe('autosave when a browser tab is hidden or closed',()=>{
+ it('does not overwrite a newer document from another tab when this tab has no unsaved edits',async()=>{
+  const newer=doc('초안 + 30분 동안 쓴 내용');await saveFromOtherTab(newer);
+  act(()=>{hide();window.dispatchEvent(new Event('pagehide'))});
+  await wait(400);expect(saveDocument).not.toHaveBeenCalled();expect(text(await stored())).toBe('초안 + 30분 동안 쓴 내용');
+ });
+ it('saves pending edits immediately on hide or close without saving them twice',async()=>{
+  act(()=>{edit('수정 ');window.dispatchEvent(new Event('pagehide'))});
+  expect(saveDocument).toHaveBeenCalledOnce();expect(text(saveDocument.mock.calls[0][0])).toBe('수정 초안');
+  act(()=>hide());await wait(400);expect(saveDocument).toHaveBeenCalledOnce();expect(text(await stored())).toBe('수정 초안');
+ });
+ it('retries edits whose autosave failed when the tab is hidden',async()=>{
+  saveDocument.mockRejectedValueOnce(Error('저장 공간 부족'));
+  act(()=>edit('다시 '));await wait(400);expect(saveDocument).toHaveBeenCalledOnce();
+  act(()=>hide());expect(saveDocument).toHaveBeenCalledTimes(2);await wait(50);expect(text(await stored())).toBe('다시 수정 초안');
+ });
+ it('retries a failed hide save on the next hide',async()=>{
+  saveDocument.mockRejectedValueOnce(Error('저장 공간 부족'));
+  act(()=>{edit('또 ');hide()});await wait(50);act(()=>hide());expect(saveDocument).toHaveBeenCalledTimes(2);await wait(50);expect(text(await stored())).toBe('또 다시 수정 초안');
+ });
+});
