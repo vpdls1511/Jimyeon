@@ -26,6 +26,8 @@ beforeAll(async()=>{
   {id:'i',type:'paragraph',content:['식 ',{type:'inlineEquation',props:{expression:'a+b'}}]},
   {id:'w',type:'bookmark',props:{url:'https://example.com/'}},
   {id:'w0',type:'bookmark'},
+  {id:'k',type:'checkListItem',props:{checked:false},content:'할 일'},
+  {id:'g',type:'codeBlock',props:{language:'javascript'},content:'let x=1'},
   {id:'b',type:'button',props:{label:'버튼',action:'text',value:'삽입된 문단'}},
   {id:'t',type:'tabs',children:[{id:'p1',type:'tabPanel',props:{label:'탭 1'},children:[{type:'paragraph',content:'첫 탭'}]},{id:'p2',type:'tabPanel',props:{label:'탭 2'},children:[{type:'paragraph',content:'둘째 탭'}]}]},
  ]});
@@ -89,6 +91,15 @@ it('keeps the document icon and cover while locked',async()=>{
  await click(document.querySelector('.page-icon'));expect(document.querySelector('.page-emoji')).toBeNull();
  expect(document.querySelector('.page-tools')).toBeNull();expect(document.querySelector('.cover-actions')).toBeNull();
  expect(document.querySelector('.cover img').getAttribute('src')).toBe(cover);expect(document.querySelector('.page-icon').textContent).toBe('💡');
+});
+
+it('disables the to-do checkbox and code language select while locked, and restores them once unlocked',async()=>{
+ const controls=()=>[inBlock('k','input[type="checkbox"]'),inBlock('g','select')],before=doc();
+ expect(controls().map(el=>el.disabled)).toEqual([true,true]);
+ await click(controls()[0]);expect(controls()[0].checked).toBe(false);expect(doc()).toEqual(before);
+ await menu('편집 잠금 해제');expect(controls().map(el=>el.disabled)).toEqual([false,false]);
+ await click(controls()[0]);expect(props('k').checked).toBe(true);
+ await menu('문서 잠금');expect(controls().map(el=>el.disabled)).toEqual([true,true]);
 });
 
 // Replaces the shared document, so it runs last.
