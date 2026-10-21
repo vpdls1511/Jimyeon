@@ -15,7 +15,7 @@ import {loadDocument,saveDocument,emptyDocument,migrateDocument,download,readFil
 import {isDocumentFile,parseDocumentFile} from './document';
 import {notionBehavior} from './notion-behavior';
 import {blockSelection} from './block-selection';
-import {editLock,allowWhileLocked} from './edit-lock';
+import {editLock,allowWhileLocked,lockNativeControls} from './edit-lock';
 import {searchExtension,searchKey,setSearch,jumpSearch,replaceSearch} from './search';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
@@ -45,7 +45,8 @@ function App(){const [meta,setMeta]=useState(current),[saveOpen,setSaveOpen]=use
  const unsaved=useRef(false),saveNow=useCallback(async(withRevision=false)=>{clearTimeout(saveTimer.current);unsaved.current=false;let doc;try{doc=snapshot();await saveDocument(doc);if(withRevision&&Date.now()-revisionTime.current>30000){await revision(doc);revisionTime.current=Date.now()}setSaveState('저장됨')}catch(error){unsaved.current=true;setSaveState('저장 실패');const message=saveFailureMessage(doc);notify(message);throw Error(message,{cause:error})}},[snapshot,notify]),persist=useCallback(()=>{unsaved.current=true;setSaveState('저장 중…');clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>saveNow(true).catch(()=>{}),280)},[saveNow]);
  useEffect(()=>editor.onChange(()=>{persist();if(find&&query){setMatchCount(setSearch(editor,query,matchCase).length);setActiveMatch(searchKey.getState(editor._tiptapEditor.view.state).active)}}),[editor,persist,find,query,matchCase]);
  // Skip the first render: writing back the document this tab just loaded could replace newer work another tab saved in the meantime.
- useEffect(()=>{editor.isEditable=!meta.locked;if(meta!==current)persist();document.title=meta.title||'제목 없음';document.documentElement.dataset.theme=meta.theme},[meta,editor,persist]);
+ useEffect(()=>{editor.isEditable=!meta.locked;return lockNativeControls(editor.domElement,meta.locked)},[meta.locked,editor]);
+ useEffect(()=>{if(meta!==current)persist();document.title=meta.title||'제목 없음';document.documentElement.dataset.theme=meta.theme},[meta,editor,persist]);
  useEffect(()=>{const key=e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='f'){e.preventDefault();setFind(true)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='p'){e.preventDefault();document.querySelector('#export-pdf')?.click()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();setSaveOpen(true)}if(e.key==='Escape'){setFind(false);setMenu(false);setEmoji(false)}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[]);
  useEffect(()=>{if(!find)setSearch(editor,'');else{const found=setSearch(editor,query,matchCase,0);setMatchCount(found.length);setActiveMatch(0)}},[find,query,matchCase,editor]);
  // Only write on hide or close when this tab has unsaved edits, so an idle tab cannot replace newer work saved by another tab.
