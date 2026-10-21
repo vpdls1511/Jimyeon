@@ -30,7 +30,7 @@ beforeAll(async()=>{
   {id:'t',type:'tabs',children:[{id:'p1',type:'tabPanel',props:{label:'탭 1'},children:[{type:'paragraph',content:'첫 탭'}]},{id:'p2',type:'tabPanel',props:{label:'탭 2'},children:[{type:'paragraph',content:'둘째 탭'}]}]},
  ]});
  // Load the app stylesheet so the lock rules can be checked with computed styles.
- const style=document.createElement('style');style.textContent=readFileSync('src/style.css','utf8');document.head.append(style);
+ const stylesheet='../src/style.css',style=document.createElement('style');style.textContent=readFileSync(new URL(stylesheet,import.meta.url),'utf8');document.head.append(style);
  const root=document.createElement('div');root.id='root';document.body.append(root);
  await act(async()=>{await import('../src/main.jsx')});await vi.waitFor(()=>expect(document.querySelector('.locked-note')).not.toBeNull());
 },30000);
@@ -52,7 +52,17 @@ it('keeps the body through undo, redo and replace while locked, and find still w
 it('hides edit-only controls and the forms that start open while locked, and shows them again once unlocked',async()=>{
  const display=()=>[inBlock('e0','form'),inBlock('w0','form'),inBlock('b','.button-config'),inBlock('w','.web-edit'),inBlock('t','[title="탭 추가"]')].map(el=>getComputedStyle(el).display);
  expect(display()).toEqual(Array(5).fill('none'));
- await menu('편집 잠금 해제');expect(display()).not.toContain('none');await menu('문서 잠금');expect(display()).toEqual(Array(5).fill('none'));
+ await menu('편집 잠금 해제');expect(display()).not.toContain('none');
+ await click(inBlock('c','.callout-icon'));await dblclick(inBlock('i','.inline-equation'));await dblclick(button('탭 1'));
+ const opened=[inBlock('c','.emoji-popover'),inBlock('i','input'),inBlock('t','input')];
+ for(const el of opened){expect(el).not.toBeNull();expect(getComputedStyle(el).display).not.toBe('none')}
+ await type(opened[1],'c+d');await type(opened[2],'새 이름');const before=doc();
+ await menu('문서 잠금');expect(display()).toEqual(Array(5).fill('none'));
+ for(const el of opened)expect(getComputedStyle(el).display).toBe('none');expect(doc()).toEqual(before);
+ await menu('편집 잠금 해제');
+ for(const el of opened){expect(el.isConnected).toBe(true);expect(getComputedStyle(el).display).not.toBe('none')}
+ expect(opened[1].value).toBe('c+d');expect(opened[2].value).toBe('새 이름');expect(doc()).toEqual(before);
+ await click(inBlock('c','.callout-icon'));await key(opened[1],'Escape');await key(opened[2],'Escape');await menu('문서 잠금');
 });
 
 it('keeps blocks unchanged when their controls are used while locked, while tabs can still be switched',async()=>{
