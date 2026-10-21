@@ -5,7 +5,7 @@ import {MantineProvider} from '@mantine/core';
 import {BlockNoteEditor} from '@blocknote/core';
 import {SideMenuExtension} from '@blocknote/core/extensions';
 import {BlockNoteView} from '@blocknote/mantine';
-import {NotionSideMenu} from '../src/menus';
+import {EditorSideMenu} from '../src/menus';
 import {schema} from '../src/blocks';
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const cleanups=[];
@@ -14,7 +14,7 @@ async function fixture(){
  const editor=BlockNoteEditor.create({schema,initialContent:[{id:'divider',type:'divider'}]}),side=editor.getExtension(SideMenuExtension),unfreeze=vi.spyOn(side,'unfreezeMenu');
  const node=document.createElement('div');document.body.append(node);const root=createRoot(node);
  cleanups.push(()=>{act(()=>root.unmount());editor._tiptapEditor.destroy()});
- await act(async()=>{root.render(<MantineProvider env="test"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}><NotionSideMenu/></BlockNoteView></MantineProvider>)});
+ await act(async()=>{root.render(<MantineProvider env="test"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}><EditorSideMenu/></BlockNoteView></MantineProvider>)});
  act(()=>side.store.setState({...side.store.state,block:editor.document[0],show:true}));
  const trigger=node.querySelector('[data-test="dragHandle"]').closest('button');
  await act(async()=>trigger.click());
