@@ -12,14 +12,20 @@ async function mount(initialContent){
  const editor=BlockNoteEditor.create({schema,initialContent}),node=document.createElement('div');document.body.append(node);const root=createRoot(node);
  cleanups.push(()=>{act(()=>root.unmount());editor._tiptapEditor.destroy()});
  await act(async()=>{root.render(<MantineProvider env="test"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}/></MantineProvider>)});
- return node;
+ return {node,editor};
 }
 it('keeps the editor alive and shows the address input for a bookmark whose URL is not http(s)',async()=>{
  vi.spyOn(console,'error').mockImplementation(()=>{});
- const node=await mount([{id:'a',type:'bookmark',props:{url:'example.com'}},{id:'b',type:'bookmark',props:{url:'javascript:alert(1)'}},{id:'c',type:'bookmark',props:{url:'https://example.com/a'}}]);
+ const {node}=await mount([{id:'a',type:'bookmark',props:{url:'example.com'}},{id:'b',type:'bookmark',props:{url:'javascript:alert(1)'}},{id:'c',type:'bookmark',props:{url:'https://example.com/a'}}]);
  const blocks=[...node.querySelectorAll('.web-block')];
  expect(blocks).toHaveLength(3);
  expect(blocks[0].querySelector('input[aria-label="웹 주소"]').value).toBe('example.com');
  expect(blocks[1].querySelector('input[aria-label="웹 주소"]')).not.toBeNull();
  expect(blocks[2].querySelector('a.bookmark small').textContent).toContain('example.com');
+});
+it('shows the current address when the link editor is opened after an external change such as undo',async()=>{
+ const {node,editor}=await mount([{id:'a',type:'bookmark',props:{url:'https://example.com/a'}}]);
+ await act(async()=>{editor.updateBlock('a',{props:{url:'https://example.com/b'}})});
+ await act(async()=>node.querySelector('.web-edit').click());
+ expect(node.querySelector('input[aria-label="웹 주소"]').value).toBe('https://example.com/b');
 });

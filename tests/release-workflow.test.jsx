@@ -28,7 +28,7 @@ beforeEach(()=>{
  vi.resetModules();state.files.clear();state.calls=[];state.draft=true;state.badDigest=false;
  state.files.set('package.json',JSON.stringify({version:'1.0.1'}));
  for(const suffix of ['macOS-arm64.dmg','macOS-arm64.zip','macOS-x64.dmg','macOS-x64.zip','Windows-x64-Setup.exe','Windows-x64.zip'])state.files.set('release-assets/Jimyeon-1.0.1-'+suffix,Buffer.alloc(1_000_001,suffix.length));
- vi.stubEnv('GITHUB_REPOSITORY','owner/repo');vi.stubEnv('GITHUB_SHA',commit);vi.stubEnv('GITHUB_REF_TYPE','branch');vi.stubEnv('GITHUB_STEP_SUMMARY','');vi.stubEnv('PUBLISH_RELEASE','false');
+ vi.stubEnv('GITHUB_REPOSITORY','owner/repo');vi.stubEnv('GITHUB_SHA',commit);vi.stubEnv('GITHUB_STEP_SUMMARY','');vi.stubEnv('PUBLISH_RELEASE','false');
 });
 afterEach(()=>vi.unstubAllEnvs());
 
