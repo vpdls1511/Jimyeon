@@ -7,6 +7,7 @@ import {emptyDocument} from '../src/document';
 const require=createRequire(import.meta.url);
 const {createDraftStore}=require('../electron/draft-store.cjs');
 const {atomicWrite}=require('../electron/files.cjs');
+const fsPromises=require('node:fs/promises');
 async function fixture(run){const folder=await mkdtemp(path.join(tmpdir(),'resume-draft-'));try{await run(folder)}finally{await rm(folder,{recursive:true,force:true})}}
 
 it('writes consecutive identical snapshots once, including concurrent requests',()=>fixture(async folder=>{
@@ -46,12 +47,33 @@ it.runIf(posixUser)('moves drafts aside even when they cannot be read or copied'
  for(const file of kept)await chmod(path.join(folder,file),0o600);
  expect(await readFile(path.join(folder,kept[0]),'utf8')).toBe('{"title":"권한 없는 문서"}');expect(await readFile(path.join(folder,kept[1]),'utf8')).toBe('{"title":"권한 없는 이전 문서"}');
 }));
-it.runIf(posixUser)('leaves unreadable drafts in place when the folder cannot be written, because saving fails too',()=>fixture(async folder=>{
+it.runIf(posixUser)('keeps unreadable drafts in place and fails saving while the folder does not allow moving them',()=>fixture(async folder=>{
  await writeFile(path.join(folder,'document.json'),'broken');await writeFile(path.join(folder,'document.previous.json'),'broken previous');await chmod(folder,0o500);
  try{
-  const store=createDraftStore(folder);await expect(store.load()).rejects.toThrow();await expect(store.save(emptyDocument())).rejects.toThrow();
+  const store=createDraftStore(folder);await expect(store.load()).rejects.toThrow('자동 저장 문서를 읽지 못했습니다');await expect(store.save(emptyDocument())).rejects.toThrow();
   expect(await readFile(path.join(folder,'document.json'),'utf8')).toBe('broken');expect(await readFile(path.join(folder,'document.previous.json'),'utf8')).toBe('broken previous');
  }finally{await chmod(folder,0o700)}
+}));
+it('retries moving unreadable drafts aside before each save and fails the save until they move',()=>fixture(async folder=>{
+ await writeFile(path.join(folder,'document.json'),'{"title":"잠긴 문서');await writeFile(path.join(folder,'document.previous.json'),'{"title":"잠긴 이전 문서');
+ // Like a Windows file lock held by another program: the first two moves fail, then the lock is gone.
+ const locked=Object.assign(Error('EBUSY: resource busy or locked'),{code:'EBUSY'}),rename=vi.spyOn(fsPromises,'rename').mockRejectedValueOnce(locked).mockRejectedValueOnce(locked);
+ try{
+  const store=createDraftStore(folder);await expect(store.load()).rejects.toThrow('자동 저장 문서를 읽지 못했습니다');
+  await expect(store.save({...emptyDocument(),title:'first'})).rejects.toThrow('EBUSY');expect(await readFile(path.join(folder,'document.json'),'utf8')).toBe('{"title":"잠긴 문서');
+  await store.save({...emptyDocument(),title:'second'});await store.save({...emptyDocument(),title:'third'});
+ }finally{rename.mockRestore()}
+ const files=await readdir(folder),kept=name=>readFile(path.join(folder,files.find(file=>file.startsWith(name+'.corrupt-'))),'utf8');
+ expect(files.filter(file=>file.includes('.corrupt-'))).toHaveLength(2);expect(await kept('document')).toBe('{"title":"잠긴 문서');expect(await kept('document.previous')).toBe('{"title":"잠긴 이전 문서');
+ expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8')).title).toBe('third');
+}));
+it('moves an unreadable primary aside before saving when the previous draft opens instead',()=>fixture(async folder=>{
+ const backup={...emptyDocument(),title:'이전 저장본'};
+ await writeFile(path.join(folder,'document.json'),'{"title":"더 최근에 잘린 문서');await writeFile(path.join(folder,'document.previous.json'),JSON.stringify(backup));
+ const store=createDraftStore(folder);expect(await store.load()).toEqual(backup);await store.save({...emptyDocument(),title:'next'});
+ const kept=(await readdir(folder)).find(file=>file.startsWith('document.corrupt-'));expect(kept).toBeDefined();
+ expect(await readFile(path.join(folder,kept),'utf8')).toBe('{"title":"더 최근에 잘린 문서');
+ expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8')).title).toBe('next');expect(JSON.parse(await readFile(path.join(folder,'document.previous.json'),'utf8'))).toEqual(backup);
 }));
 it('retries a failed save without treating it as successfully cached',()=>fixture(async folder=>{
  const write=vi.fn().mockRejectedValueOnce(Error('disk full')).mockImplementation(atomicWrite),store=createDraftStore(folder,write),doc=emptyDocument();
