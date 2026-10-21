@@ -114,14 +114,64 @@ describe('browser storage renamed from the previous identifier', () => {
     finally { db.close(); }
   };
 
-  it('moves the autosaved document and revisions into the new database, then deletes the old one', async () => {
+  it('copies the autosaved document and revisions into the new database and keeps the old one', async () => {
     await legacyProfile();
     const storage = await start();
     expect((await storage.loadDocument()).title).toBe('옮길 문서');
     expect((await storage.listRevisions()).map(v => v.doc.title)).toEqual(['이전 기록']);
     expect(await contents('jimyeon')).toEqual({ current: '옮길 문서', revisions: ['이전 기록'] });
-    // Opening queues behind the deletion, so the old name now opens an empty database.
-    expect(await contents(LEGACY_ID)).toBeNull();
+    expect(await contents(LEGACY_ID)).toEqual({ current: '옮길 문서', revisions: ['이전 기록'] });
+  });
+
+  it('does not touch the old database when the new one already has data', async () => {
+    await legacyProfile();
+    const db = await openDB('jimyeon', 1, { upgrade(d) { d.createObjectStore('documents'); d.createObjectStore('revisions', { keyPath: 'time' }); } });
+    await db.put('documents', { ...emptyDocument(), title: '새 문서' }, 'current');
+    db.close();
+    const storage = await start();
+    expect((await storage.loadDocument()).title).toBe('새 문서');
+    expect(await contents('jimyeon')).toEqual({ current: '새 문서', revisions: [] });
+    expect(await contents(LEGACY_ID)).toEqual({ current: '옮길 문서', revisions: ['이전 기록'] });
+  });
+
+  it('gives the same result when started again, and ignores later changes to the old database', async () => {
+    await legacyProfile();
+    let storage = await start();
+    await storage.loadDocument();
+    await storage.saveDocument({ ...emptyDocument(), title: '이어서 고친 문서' });
+    const legacy = await openDB(LEGACY_ID);
+    await legacy.put('documents', { ...emptyDocument(), format: LEGACY_ID, title: '옛 탭에서 고친 문서' }, 'current');
+    await legacy.put('revisions', { time: 2, doc: { ...emptyDocument(), title: '옛 탭 기록' } });
+    legacy.close();
+    for (let i = 0; i < 2; i++) {
+      storage = await start();
+      expect((await storage.loadDocument()).title).toBe('이어서 고친 문서');
+      expect((await storage.listRevisions()).map(v => v.doc.title)).toEqual(['이전 기록']);
+    }
+  });
+
+  it('starts without waiting for an old tab that still has the old database open', async () => {
+    await legacyProfile();
+    const oldTab = await openDB(LEGACY_ID);
+    const storage = await start();
+    expect((await storage.loadDocument()).title).toBe('옮길 문서');
+    oldTab.close();
+    expect(await contents(LEGACY_ID)).toEqual({ current: '옮길 문서', revisions: ['이전 기록'] });
+    // Closing the old tab later leaves nothing to redo: the next start does not read the old database again.
+    const reopen = vi.spyOn(indexedDB, 'open');
+    await (await start()).loadDocument();
+    expect(reopen.mock.calls.map(([name]) => name)).not.toContain(LEGACY_ID);
+  });
+
+  it('keeps a document another tab saved while this tab was starting', async () => {
+    await legacyProfile();
+    const tabA = await start(), tabB = await start();
+    const [docA] = await Promise.all([tabA.loadDocument(), tabB.loadDocument().catch(() => null)]);
+    expect(docA.title).toBe('옮길 문서');
+    await tabA.saveDocument({ ...emptyDocument(), title: 'A 탭에서 고친 문서' });
+    const tabC = await start();
+    expect((await tabC.loadDocument()).title).toBe('A 탭에서 고친 문서');
+    expect(await contents('jimyeon')).toEqual({ current: 'A 탭에서 고친 문서', revisions: ['이전 기록'] });
   });
 
   it('keeps the old database when the move fails, and moves it on the next start', async () => {
