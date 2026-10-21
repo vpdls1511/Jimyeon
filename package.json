@@ -129,7 +129,6 @@
     "idb": "^8.0.3",
     "katex": "^0.16.22",
     "lucide-react": "^0.468.0",
-    "pagedjs": "^0.4.3",
     "prosemirror-history": "^1.5.1",
     "prosemirror-model": "^1.25.12",
     "prosemirror-state": "^1.4.4",
