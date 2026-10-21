@@ -1,10 +1,8 @@
 import {act} from 'react';
-import {beforeEach,expect,it} from 'vitest';
-import {emptyDocument,saveDocument} from '../src/storage';
-globalThis.IS_REACT_ACT_ENVIRONMENT=true;
-const root=document.createElement('div');root.id='root';document.body.append(root);
-await saveDocument({...emptyDocument(),blocks:[{id:'a',type:'paragraph',content:'cat cat cat'},{id:'b',type:'paragraph',content:'cat dog cat'}]});
-await act(async()=>{await import('../src/main')});
+import {beforeAll,beforeEach,expect,it} from 'vitest';
+import {emptyDocument} from '../src/storage';
+import {launchApp} from './launch-app';
+beforeAll(()=>launchApp({...emptyDocument(),blocks:[{id:'a',type:'paragraph',content:'cat cat cat'},{id:'b',type:'paragraph',content:'cat dog cat'}]}),30000);
 const text=id=>document.querySelector(`[data-id="${id}"] .bn-inline-content`).textContent;
 const matches=()=>document.querySelectorAll('.find-match').length;
 const counter=()=>document.querySelector('.find-panel span').textContent;
