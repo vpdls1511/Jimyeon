@@ -7,4 +7,4 @@ export const editLock=createExtension(({editor})=>({key:'editLock',prosemirrorPl
 // Switching documents or tabs is not editing the locked document, so it still applies.
 export function allowWhileLocked(editor,change){return editor.transact(tr=>{tr.setMeta(ALLOW,true);return change()})}
 // BlockNote draws the to-do checkbox and the code language select without reading the lock, so disable them in the DOM.
-export function lockNativeControls(root,locked){const apply=()=>root.querySelectorAll('.bn-editor input[type="checkbox"],.bn-editor select').forEach(el=>{el.disabled=locked});apply();if(!locked)return;const observer=new MutationObserver(apply);observer.observe(root,{childList:true,subtree:true});return()=>observer.disconnect()}
+export function lockNativeControls(root,locked){if(!root||!locked)return;const ours=new Set(),apply=()=>root.querySelectorAll('input[type="checkbox"],select').forEach(el=>{if(!el.disabled){el.disabled=true;ours.add(el)}});apply();const observer=new MutationObserver(apply);observer.observe(root,{childList:true,subtree:true});return()=>{observer.disconnect();ours.forEach(el=>{el.disabled=false})}}

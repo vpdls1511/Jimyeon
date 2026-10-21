@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {beforeAll,expect,it,vi} from 'vitest';
 import {saveDocument,emptyDocument} from '../src/storage';
 import {replaceSearch} from '../src/search';
+import {lockNativeControls} from '../src/edit-lock';
 import {undo,redo,closeHistory} from '@tiptap/pm/history';
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const cover='data:image/png;base64,iVBORw0KGgo=';
@@ -100,6 +101,12 @@ it('disables the to-do checkbox and code language select while locked, and resto
  await menu('편집 잠금 해제');expect(controls().map(el=>el.disabled)).toEqual([false,false]);
  await click(controls()[0]);expect(props('k').checked).toBe(true);
  await menu('문서 잠금');expect(controls().map(el=>el.disabled)).toEqual([true,true]);
+});
+
+it('leaves controls that were already disabled disabled after unlocking',()=>{
+ const root=document.createElement('div');root.innerHTML='<input type="checkbox"><input type="checkbox" disabled>';
+ const [free,off]=root.querySelectorAll('input'),unlock=lockNativeControls(root,true);expect([free.disabled,off.disabled]).toEqual([true,true]);
+ unlock();expect([free.disabled,off.disabled]).toEqual([false,true]);
 });
 
 // Replaces the shared document, so it runs last.
