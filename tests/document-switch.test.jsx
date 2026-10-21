@@ -6,6 +6,7 @@ import {launchApp,settle,chooseFile} from './launch-app';
 const doc=(title,content,extra={})=>({...emptyDocument(),...extra,title,blocks:[{type:'paragraph',content}]});
 const view=()=>document.querySelector('.ProseMirror'),body=()=>view().textContent,title=()=>document.querySelector('#document-title').value;
 const stored=async()=>{const db=await openDB('jimyeon',1);try{return await db.get('documents','current')}finally{db.close()}};
+const toast=()=>document.querySelector('.toast')?.textContent;
 const savedText=saved=>saved.blocks.map(b=>(b.content||[]).map(c=>c.text).join('')).join('\n');
 async function undo(){await act(async()=>{view().dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true,cancelable:true}))})}
 async function menu(label){await act(async()=>document.querySelector('[aria-label="문서 메뉴"]').click());await act(async()=>[...document.querySelectorAll('.document-menu button')].find(b=>b.textContent.includes(label)).click())}
@@ -44,7 +45,6 @@ describe('switching documents starts a new undo history',()=>{
 });
 describe('importing other files',()=>{
  const blocks=()=>[...document.querySelectorAll('.bn-block-content')].map(el=>el.dataset.contentType+':'+el.textContent);
- const toast=()=>document.querySelector('.toast')?.textContent;
  it('keeps each line of a text file as a plain paragraph and names the document after the file',async()=>{
   await importDocument(doc('F 기획서','F 본문'));
   await importFile('메모.txt','장보기 목록\r\n우유\r\n계란\r\n\r\n# 3번 출구 앞에서 만나기\r\n*중요* 2*3=6\r\n');
@@ -94,5 +94,17 @@ describe('importing other files',()=>{
   expect((await listRevisions())[0].doc.title).toBe('N 기획서');
   await importFile('P 회의록.md','# P 본문');await vi.waitFor(()=>expect(title()).toBe('P 회의록'));
   expect((await listRevisions())[0].doc.title).toBe('O 이력서');
+ });
+});
+describe('notifications',()=>{
+ it('keeps the latest toast for its full 4.5 seconds when toasts follow each other',async()=>{
+  vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});
+  try{
+   await importFile('잘못.json','{"x":1}');await vi.waitFor(()=>expect(toast()).toBe('이 에디터에서 저장한 문서를 선택하세요.'));
+   await act(async()=>{vi.advanceTimersByTime(3500)});
+   await importFile('토스트.md','# 토스트');await vi.waitFor(()=>expect(toast()).toBe('문서를 열었습니다.'));
+   await act(async()=>{vi.advanceTimersByTime(4400)});expect(toast()).toBe('문서를 열었습니다.');
+   await act(async()=>{vi.advanceTimersByTime(200)});expect(toast()).toBeUndefined();
+  }finally{vi.useRealTimers()}
  });
 });

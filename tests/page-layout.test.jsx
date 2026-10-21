@@ -115,6 +115,11 @@ describe('PDF uses the live page layout',()=>{
    const copy=await freezeLiveSource(node,{title:''});expect(copy.querySelector('img,video')).toBeNull();expect(copy.querySelector('.print-media-card').textContent).toBe('영상');
   }finally{getContext.mockRestore();toDataURL.mockRestore()}
  });
+ it('records the document title in the print html head and escapes it',async()=>{
+  const metrics=pageMetrics({paper:'A4'}),title=async t=>new DOMParser().parseFromString((await livePrintJob(source(),{title:t,paper:'A4'},{count:1,metrics})).html,'text/html').head.querySelector('title')?.textContent;
+  expect(await title('보고서 <b>&"1"')).toBe('보고서 <b>&"1"');expect(await title('')).toBe('문서');
+  expect((await livePrintJob(source(),{title:'</title><script>x</script>',paper:'A4'},{count:1,metrics})).html).not.toContain('<script>x');
+ });
  it('cuts the same live canvas into physical sheets without reflow and emits per-page numbering',async()=>{
   const metrics=pageMetrics({paper:'A4',pageNumber:'left'}),job=await livePrintJob(source(),{title:'제목',paper:'A4',pageNumber:'left'},{count:2,metrics});
   const doc=new DOMParser().parseFromString(job.html,'text/html');expect(doc.querySelectorAll('.printed-sheet')).toHaveLength(2);expect([...doc.querySelectorAll('.printed-page-number')].map(n=>n.textContent)).toEqual(['1/2','2/2']);expect(parseFloat(doc.querySelectorAll('.frozen-document')[1].style.top)).toBeCloseTo(-metrics.height-PAGE_GAP);expect(job.pageCount).toBe(2);expect(job.html).toContain('210mm 297mm');
