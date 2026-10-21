@@ -11,15 +11,8 @@ export function executable({env=process.env,platform=process.platform,exists=exi
 export function createBrowserSession(launch){
   let promise=null;
   const start=()=>{const current=launch().then(browser=>{browser.on('disconnected',()=>{if(promise===current)promise=null});return browser},e=>{if(promise===current)promise=null;throw e});return promise=current};
-  const reset=failed=>{if(promise===failed)promise=null};
   return {
-    async context(){
-      for(let attempt=0;;attempt++){
-        const current=promise||start();
-        try{const browser=await current;return {browser,context:await browser.createBrowserContext()}}
-        catch(e){reset(current);if(attempt)throw e}
-      }
-    },
+    async context(){const browser=await(promise||start());return {browser,context:await browser.createBrowserContext()}},
     async close(){if(promise)try{await(await promise).close()}catch{}promise=null}
   };
 }
