@@ -19,7 +19,8 @@ function validatePDF(job) {
 }
 
 function serializeDraft(doc) {
-  if (!doc || doc.format !== 'local-notion-editor' || doc.version !== 2 || !Array.isArray(doc.blocks)) {
+  // Drafts saved by earlier versions keep their previous identifier (LEGACY_ID in src/document.js).
+  if (!doc || !['jimyeon', 'local-notion-editor'].includes(doc.format) || doc.version !== 2 || !Array.isArray(doc.blocks)) {
     throw Error('올바른 편집 문서가 아닙니다.');
   }
   const text = JSON.stringify(doc);

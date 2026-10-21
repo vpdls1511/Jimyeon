@@ -6,14 +6,14 @@ import {BlockNoteEditor} from '@blocknote/core';
 import {BlockNoteView} from '@blocknote/mantine';
 import {schema} from '../src/blocks';
 import {extraSlashItems} from '../src/menus';
-import {notionBehavior} from '../src/notion-behavior';
+import {editingConventions} from '../src/editing-conventions';
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const cleanups=[];
 // The desktop app replaces window.prompt with a function that always throws.
 beforeEach(()=>vi.stubGlobal('prompt',()=>{throw Error('prompt() is not supported.')}));
 afterEach(()=>{cleanups.splice(0).forEach(fn=>fn());vi.unstubAllGlobals();document.body.replaceChildren()});
 async function mount(blocks){
- const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[notionBehavior]}),node=document.createElement('div');document.body.append(node);const root=createRoot(node);
+ const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[editingConventions]}),node=document.createElement('div');document.body.append(node);const root=createRoot(node);
  cleanups.push(()=>{act(()=>root.unmount());editor._tiptapEditor.destroy()});
  await act(async()=>{root.render(<MantineProvider env="test"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}/></MantineProvider>)});
  return {editor,node};

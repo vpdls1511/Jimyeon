@@ -5,7 +5,7 @@ import {launchApp,importDocument} from './launch-app';
 
 it('renders a recovery notice with working import and new document when IndexedDB cannot be opened',async()=>{
  // A database left at a newer version makes the editor's openDB fail with VersionError.
- (await openDB('local-notion-editor',2)).close();await launchApp();
+ (await openDB('jimyeon',2)).close();await launchApp();
  const title=()=>document.querySelector('#document-title'),alert=()=>document.querySelector('[role="alert"]'),body=()=>document.querySelector('.bn-editor').textContent;
  const menuItem=async label=>{document.querySelector('button[aria-label="문서 메뉴"]').click();return vi.waitFor(()=>[...document.querySelectorAll('.document-menu button')].find(button=>button.textContent.includes(label))||Promise.reject(Error('문서 메뉴가 열리지 않았습니다.')))};
  await vi.waitFor(()=>expect(alert()?.textContent).toContain('자동 저장 문서를 읽지 못했습니다. 저장된 문서 파일을 가져와 주세요.'));expect(title().value).toBe('');

@@ -8,9 +8,9 @@ const doc=text=>({...emptyDocument(),title:'계약서',blocks:[{type:'paragraph'
 const view=()=>document.querySelector('.ProseMirror'),body=()=>view().textContent;
 const wait=ms=>act(()=>new Promise(resolve=>setTimeout(resolve,ms)));
 const text=saved=>saved.blocks.map(b=>(b.content||[]).map(c=>c.text).join('')).join('\n');
-const stored=async()=>{const db=await openDB('local-notion-editor',1);try{return await db.get('documents','current')}finally{db.close()}};
+const stored=async()=>{const db=await openDB('jimyeon',1);try{return await db.get('documents','current')}finally{db.close()}};
 // Another tab writes through its own connection, exactly like a second editor instance.
-const saveFromOtherTab=async value=>{const db=await openDB('local-notion-editor',1);try{await db.put('documents',value,'current')}finally{db.close()}};
+const saveFromOtherTab=async value=>{const db=await openDB('jimyeon',1);try{await db.put('documents',value,'current')}finally{db.close()}};
 function hide(){Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));delete document.hidden}
 function edit(value){const tiptap=view().editor;let pos;tiptap.state.doc.descendants((node,p)=>{if(pos===undefined&&node.isText)pos=p});tiptap.view.dispatch(tiptap.state.tr.insertText(value,pos))}
 beforeAll(async()=>{
@@ -31,6 +31,7 @@ describe('autosave when a browser tab is hidden or closed',()=>{
  it('saves pending edits immediately on hide or close without saving them twice',async()=>{
   act(()=>{edit('수정 ');window.dispatchEvent(new Event('pagehide'))});
   expect(saveDocument).toHaveBeenCalledOnce();expect(text(saveDocument.mock.calls[0][0])).toBe('수정 초안');
+  expect(saveDocument.mock.calls[0][0].format).toBe('jimyeon');
   act(()=>hide());await wait(400);expect(saveDocument).toHaveBeenCalledOnce();expect(text(await stored())).toBe('수정 초안');
  });
  it('retries edits whose autosave failed when the tab is hidden',async()=>{

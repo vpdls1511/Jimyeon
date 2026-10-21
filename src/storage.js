@@ -1,7 +1,21 @@
-import {openDB} from 'idb';
-import {emptyDocument,migrateDocument} from './document';
+import {openDB,deleteDB} from 'idb';
+import {emptyDocument,migrateDocument,LEGACY_ID} from './document';
 export {emptyDocument,migrateDocument} from './document';
-const dbPromise=openDB('local-notion-editor',1,{upgrade(db){db.createObjectStore('documents');db.createObjectStore('revisions',{keyPath:'time'});}});
+// Earlier versions kept the same stores in a database named LEGACY_ID. Its data moves into the new database while that is
+// still empty, in one transaction, and the old database is deleted only after the move commits; a failed move keeps it for the next start.
+async function moveLegacyData(db){
+ // Opening a missing database creates it, so skip that when the browser can list databases.
+ const known=await indexedDB.databases?.().catch(()=>null);if(known&&!known.some(({name})=>name===LEGACY_ID))return;
+ const legacy=await openDB(LEGACY_ID),names=['documents','revisions'].filter(name=>legacy.objectStoreNames.contains(name));let data=[];
+ try{if(names.length){const tx=legacy.transaction(names);data=await Promise.all(names.map(async name=>{const store=tx.objectStore(name);return [name,await store.getAllKeys(),await store.getAll()]}))}}finally{legacy.close()}
+ if(data.some(([,keys])=>keys.length)){
+  if(await db.count('documents')||await db.count('revisions'))return;
+  const tx=db.transaction(['documents','revisions'],'readwrite');tx.done.catch(()=>{});
+  try{for(const [name,keys,values] of data){const store=tx.objectStore(name);for(const [i,key] of keys.entries())await (store.keyPath?store.put(values[i]):store.put(values[i],key))}await tx.done}catch(error){try{tx.abort()}catch{}throw error}
+ }
+ deleteDB(LEGACY_ID).catch(()=>{});
+}
+const dbPromise=openDB('jimyeon',1,{upgrade(db){db.createObjectStore('documents');db.createObjectStore('revisions',{keyPath:'time'});}}).then(async db=>{try{await moveLegacyData(db)}catch(error){db.close();throw error}return db});
 // Without IndexedDB the editor still opens; only revision history is unavailable, and listRevisions marks its empty list so.
 const historyDB=dbPromise.catch(()=>null);
 // True when the desktop opened the previous draft because the latest could not be read. migrateDocument drops the mark from the document itself.
