@@ -72,6 +72,12 @@ describe('block type shortcuts through the editor keymap',()=>{
   const e=create();e.setTextCursorPosition('a','end');press(e,'1',{altKey:true});expect(e.getBlock('a')).toMatchObject({type:'heading',props:{level:1}});
   press(e,'5',{shiftKey:true});expect(e.getBlock('a').type).toBe('bulletListItem');expect(e.getBlock('a').content[0].text).toBe('hello');
  });
+ it('still converts a code block, whose content is plain text',()=>{
+  for(const [key,modifiers,type] of [['1',{altKey:true},'heading'],['0',{altKey:true},'paragraph'],['5',{shiftKey:true},'bulletListItem']]){
+   const e=create([{id:'c',type:'codeBlock',content:'let x=1'}]);e.setTextCursorPosition('c','end');press(e,key,modifiers);
+   expect(e.getBlock('c').type).toBe(type);expect(e.getBlock('c').content.map(c=>c.text).join('')).toBe('let x=1');
+  }
+ });
  it('keeps a table when the cursor is in one of its cells',()=>{
   const e=create([{id:'t',type:'table',content:{type:'tableContent',rows:[{cells:['A','B']}]}}]);e.setTextCursorPosition('t','start');expect(e.getTextCursorPosition().block.id).toBe('t');
   const before=e.document;pressAll(e);expect(e.document).toEqual(before);
