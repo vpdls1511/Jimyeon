@@ -1,6 +1,6 @@
 {
   "name": "jimyeon",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "A local-first document editor with flexible blocks, live A4/A3 pages, and PDF export that matches your layout.",
   "author": "vpdls1511",
