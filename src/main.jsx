@@ -15,7 +15,7 @@ import {loadDocument,saveDocument,emptyDocument,migrateDocument,download,readFil
 import {isDocumentFile,parseDocumentFile} from './document';
 import {notionBehavior} from './notion-behavior';
 import {blockSelection} from './block-selection';
-import {searchExtension,setSearch,jumpSearch,replaceSearch} from './search';
+import {searchExtension,searchKey,setSearch,jumpSearch,replaceSearch} from './search';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
 import './style.css';
@@ -38,7 +38,7 @@ function App(){const [meta,setMeta]=useState(current),[saveOpen,setSaveOpen]=use
  useEffect(()=>{const title=document.getElementById('document-title');if(title){title.style.height='auto';title.style.height=title.scrollHeight+'px'}},[meta.title,meta.font,meta.fontSize,meta.titleFontSize,meta.marginLeft,meta.marginRight,meta.paper]);
  const snapshot=useCallback(()=>({...metaRef.current,format:'local-notion-editor',version:2,blocks:structuredClone(editor.document)}),[editor]);
  const persist=useCallback(()=>{setSaveState('저장 중…');clearTimeout(saveTimer.current);saveTimer.current=setTimeout(async()=>{try{const doc=snapshot();await saveDocument(doc);if(Date.now()-revisionTime.current>30000){await revision(doc);revisionTime.current=Date.now()}setSaveState('저장됨')}catch{setSaveState('저장 실패');notify('저장 공간을 확인하고 문서 파일로 저장해 주세요.')}},280)},[snapshot,notify]);
- useEffect(()=>editor.onChange(()=>{persist();if(query)setMatchCount(setSearch(editor,query,matchCase).length)}),[editor,persist,query,matchCase]);
+ useEffect(()=>editor.onChange(()=>{persist();if(find&&query){setMatchCount(setSearch(editor,query,matchCase).length);setActiveMatch(searchKey.getState(editor._tiptapEditor.view.state).active)}}),[editor,persist,find,query,matchCase]);
  useEffect(()=>{editor.isEditable=!meta.locked;persist();document.title=meta.title||'제목 없음';document.documentElement.dataset.theme=meta.theme},[meta,editor,persist]);
  useEffect(()=>{const key=e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='f'){e.preventDefault();setFind(true)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='p'){e.preventDefault();document.querySelector('#export-pdf')?.click()}if(e.key==='Escape'){setFind(false);setMenu(false);setEmoji(false)}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[]);
  useEffect(()=>{if(!find)setSearch(editor,'');else{const found=setSearch(editor,query,matchCase);setMatchCount(found.length);setActiveMatch(0)}},[find,query,matchCase,editor]);
