@@ -64,8 +64,9 @@ describe('importing other files',()=>{
  it('names an imported HTML document after the file',async()=>{
   await importDocument(doc('G 기획서','G 본문'));
   await importFile('회의록.html','<h2>안건</h2><p>회의 본문</p>');
-  await vi.waitFor(()=>expect(body()).toBe('안건회의 본문'));expect(title()).toBe('회의록');
-  await wait(400);expect((await stored()).title).toBe('회의록');
+  // The body is replaced right away, but the title is React state that renders a moment later.
+  await vi.waitFor(()=>{expect(body()).toBe('안건회의 본문');expect(title()).toBe('회의록')});
+  await vi.waitFor(async()=>expect((await stored()).title).toBe('회의록'));
  });
  it('explains a truncated document file in Korean and keeps the current document',async()=>{
   await importDocument(doc('H 기획서','H 본문'));
