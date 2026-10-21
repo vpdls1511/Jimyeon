@@ -137,36 +137,3 @@ export function paperCSS(name) {
     * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
   `;
 }
-
-export function frozenPageHTML(doc, paper) {
-  const pages = [...doc.querySelectorAll('.pagedjs_page')];
-  if (!pages.length) throw new Error('페이지 미리보기를 먼저 완성해 주세요.');
-  const freeze = page => {
-    const clone = page.cloneNode(true);
-    const originals = [page, ...page.querySelectorAll('*')];
-    const clones = [clone, ...clone.querySelectorAll('*')];
-    originals.forEach((node, i) => {
-      const styles = doc.defaultView.getComputedStyle(node);
-      clones[i].style.cssText = [...styles].map(k => `${k}:${styles.getPropertyValue(k)}`).join(';');
-      clones[i].removeAttribute('contenteditable');
-    });
-    clone.style.setProperty('margin', '0', 'important');
-    clone.style.setProperty('box-shadow', 'none', 'important');
-    clone.style.setProperty('border', '0', 'important');
-    clone.style.setProperty('break-after', 'page', 'important');
-    return clone.outerHTML;
-  };
-  const size = paperSize(paper);
-  const styleText = [...doc.querySelectorAll('style')].map(s => s.textContent).join('\n');
-  return {
-    paper, pageCount: pages.length,
-    html: `<!doctype html><html lang="ko"><head><meta charset="utf-8"><base href="${location.origin}/"><style>${styleText}</style><style>
-      @page{size:${size.width}mm ${size.height}mm;margin:0}
-      html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important;width:${size.width}mm!important}
-      .pagedjs_page{width:${size.width}mm!important;height:${size.height}mm!important;overflow:hidden!important;position:relative!important;transform:none!important}
-      .pagedjs_page:last-child{break-after:auto!important}
-      .pagedjs_page::before,.pagedjs_page::after{display:none!important}
-      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;animation:none!important;transition:none!important}
-    </style></head><body>${pages.map(freeze).join('')}</body></html>`,
-  };
-}
