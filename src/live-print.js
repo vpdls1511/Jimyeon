@@ -20,7 +20,7 @@ export async function freezeLiveSource(source,meta){
  copy.querySelectorAll('.page-tools,.page-emoji,.cover-actions,.locked-note,.bn-side-menu,.bn-toolbar,.bn-suggestion-menu,.bn-file-panel,.bn-file-block-top,.bn-resize-handle,.column-resize-layer,.bn-trailing-block,.web-edit,.button-config,.button-settings,.emoji-popover,script').forEach(node=>node.remove());
  // In-flow editing controls and hints keep their measured box so the live page cuts still line up, but print nothing.
  // An equation being edited prints only its preview, and an empty expression's hint prints nothing.
- copy.querySelectorAll('.tabs-bar button[title="탭 추가"],.bn-toggle-add-block-button,.bn-add-file-button,.web-block form,.equation form,.table-of-contents>span,[data-math-hint]').forEach(node=>[node,...node.querySelectorAll('*')].forEach(el=>{if(!el.closest('.equation-preview')||el.closest('[data-math-hint]'))el.style.setProperty('visibility','hidden','important')}));
+ copy.querySelectorAll('.tabs-bar button[title="탭 추가"],.tabs-bar input,.inline-equation input,.bn-toggle-add-block-button,.bn-add-file-button,.web-block form,.equation form,.table-of-contents>span,[data-math-hint]').forEach(node=>[node,...node.querySelectorAll('*')].forEach(el=>{if(!el.closest('.equation-preview')||el.closest('[data-math-hint]'))el.style.setProperty('visibility','hidden','important')}));
  for(const node of copy.querySelectorAll('[data-block-range-selected]'))node.removeAttribute('data-block-range-selected');
  // The computed blue background is a transient decoration, too.
  originals.forEach((node,i)=>{if(node.hasAttribute('data-block-range-selected'))clones[i].style.setProperty('background-color','transparent','important')});

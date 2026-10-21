@@ -144,4 +144,17 @@ describe('PDF uses the live page layout',()=>{
    expect([...doc.querySelectorAll('.frozen-document textarea')].filter(shown)).toEqual([]);
   }finally{destroy()}
  });
+ it('prints neither the tab name field nor the inline equation field left open in the document',async()=>{
+  const {source,destroy}=await liveEditor([{type:'tabs',children:[{type:'tabPanel',props:{label:'첫 탭'},children:[{type:'paragraph',content:'탭 내용'}]},{type:'tabPanel',props:{label:'둘째 탭'},children:[{type:'paragraph'}]}]},{type:'paragraph',content:[{type:'text',text:'식 ',styles:{}},{type:'inlineEquation',props:{expression:'a+b'}}]}]);
+  try{
+   const dblclick=target=>act(async()=>target.dispatchEvent(new MouseEvent('dblclick',{bubbles:true})));
+   await dblclick([...source.querySelectorAll('.tabs-bar button')].find(button=>button.textContent==='첫 탭'));await dblclick(source.querySelector('.inline-equation'));
+   expect(source.querySelector('.tabs-bar input')).not.toBeNull();expect(source.querySelector('.inline-equation input')).not.toBeNull();
+   const {doc,text}=await printPage(source);
+   expect(text).toContain('둘째 탭');expect(text).toContain('탭 내용');
+   // The fields keep their place so the page cuts still line up, but nothing of them is printed.
+   for(const selector of ['.tabs-bar input','.inline-equation input'])expect(doc.querySelector(`.frozen-document ${selector}`)).not.toBeNull();
+   expect([...doc.querySelectorAll('.frozen-document input')].filter(shown)).toEqual([]);
+  }finally{destroy()}
+ });
 });
