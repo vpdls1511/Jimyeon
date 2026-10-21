@@ -25,7 +25,7 @@ export function duplicate(editor,block){
  const inserted=[];editor.transact(()=>{for(const group of groups.values())inserted.push(...editor.insertBlocks(cloneBlocks(group),group.at(-1),'after'))});
  selectBlocks(editor,inserted.map(b=>b.id));editor.focus();
 }
-const conversions=[['텍스트','paragraph'],['제목 1','heading',{level:1}],['제목 2','heading',{level:2}],['제목 3','heading',{level:3}],['제목 4','heading',{level:4}],['글머리 기호 목록','bulletListItem'],['번호 매기기 목록','numberedListItem'],['할 일 목록','checkListItem'],['토글 목록','toggleListItem'],['인용','quote'],['콜아웃','callout'],['토글 제목 1','heading',{level:1,isToggleable:true}],['토글 제목 2','heading',{level:2,isToggleable:true}],['토글 제목 3','heading',{level:3,isToggleable:true}],['코드','codeBlock']];
+export const conversions=[['텍스트','paragraph'],['제목 1','heading',{level:1}],['제목 2','heading',{level:2}],['제목 3','heading',{level:3}],['제목 4','heading',{level:4}],['글머리 기호 목록','bulletListItem'],['번호 매기기 목록','numberedListItem'],['할 일 목록','checkListItem'],['토글 목록','toggleListItem'],['인용','quote'],['콜아웃','callout'],['토글 제목 1','heading',{level:1,isToggleable:true}],['토글 제목 2','heading',{level:2,isToggleable:true}],['토글 제목 3','heading',{level:3,isToggleable:true}],['코드','codeBlock']];
 export function setDividerOpacity(editor,block,value){
  if(!editor.isEditable)return false;
  const targets=selectedOrCurrent(editor,block).filter(target=>target.type==='divider');if(!targets.length)return false;
