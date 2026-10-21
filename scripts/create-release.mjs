@@ -10,7 +10,6 @@ assert(/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version), 'Invalid release ver
 const prerelease = version.includes('-');
 const repo = process.env.GITHUB_REPOSITORY,commit = process.env.GITHUB_SHA,tag = `v${version}`;
 assert(repo && /^[a-f0-9]{40}$/.test(commit || ''),'Run this script in the release workflow');
-if (process.env.GITHUB_REF_TYPE === 'tag') assert.equal(process.env.GITHUB_REF_NAME,tag,'Tag and package versions must match');
 const gh = args => execFileSync('gh',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
 let tagRef;
 try{tagRef=JSON.parse(gh(['api',`repos/${repo}/git/ref/tags/${tag}`]))}

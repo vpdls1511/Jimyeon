@@ -3,6 +3,10 @@ export const PAGE_GAP=28;
 export const PAGE_SIZES={A4:{width:210,height:297},A3:{width:297,height:420}};
 const number=(value,fallback,min,max)=>Number.isFinite(Number(value))?Math.min(max,Math.max(min,Number(value))):fallback;
 
+// The page number line (mm offsets from the bottom edge) must fit inside the bottom margin.
+export const FOOTER_LINE_HEIGHT=1.2;
+export const footerOffset=marginBottom=>Math.max(3,marginBottom/2-2);
+export const minNumberMargin=fontSize=>{const h=Math.max(8,fontSize-3)*96/72*FOOTER_LINE_HEIGHT/PX_PER_MM;let margin=8;while(footerOffset(margin)+h>margin)margin++;return margin};
 export function pageSettings(meta={}){
  const pageNumber=['none','left','center','right'].includes(meta.pageNumber)?meta.pageNumber:'none';
  const fontSize=number(meta.fontSize,meta.small?10.5:12,8,24);
@@ -14,7 +18,7 @@ export function pageSettings(meta={}){
   blockGap:number(meta.blockGap,0,0,48),
   linkColor:/^#[\da-f]{6}$/i.test(meta.linkColor)?meta.linkColor:'#2365a8',
   marginTop:number(meta.marginTop,16,0,60),
-  marginBottom:number(meta.marginBottom,16,pageNumber==='none'?0:8,60),
+  marginBottom:number(meta.marginBottom,16,pageNumber==='none'?0:minNumberMargin(fontSize),60),
   marginLeft:number(meta.marginLeft,16,0,60),
   marginRight:number(meta.marginRight,16,0,60),pageNumber,
  };
@@ -29,7 +33,7 @@ export function pageVariables(meta){
 }
 export function footerStyle(meta){
  const p=pageMetrics(meta);
- return {left:p.left+'px',right:p.right+'px',bottom:Math.max(3,p.marginBottom/2-2)*PX_PER_MM+'px',textAlign:p.pageNumber==='none'?'center':p.pageNumber,fontSize:Math.max(8,p.fontSize-3)*96/72+'px',color:'#929292'};
+ return {left:p.left+'px',right:p.right+'px',bottom:footerOffset(p.marginBottom)*PX_PER_MM+'px',textAlign:p.pageNumber==='none'?'center':p.pageNumber,fontSize:Math.max(8,p.fontSize-3)*96/72+'px',lineHeight:FOOTER_LINE_HEIGHT,color:'#929292'};
 }
 
 // Work in physical document pixels, independent of the screen zoom.

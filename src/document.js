@@ -16,7 +16,7 @@ export const emptyDocument = () => ({
   format: 'local-notion-editor', version: 2,
   title: '', icon: '', cover: '', coverPosition: 50,
   wide: false, small: false, font: 'default', theme: 'light',
-  locked: false, paper: 'A3',fontSize:12,titleFontSize:30,lineHeight:1.5,letterSpacing:0,blockGap:0,linkColor:'#2365a8',marginTop:16,marginBottom:16,marginLeft:16,marginRight:16,pageNumber:'none',blocks: [{ type: 'paragraph', content: [] }],
+  locked: false, paper: 'A4',fontSize:12,titleFontSize:30,lineHeight:1.5,letterSpacing:0,blockGap:0,linkColor:'#2365a8',marginTop:16,marginBottom:16,marginLeft:16,marginRight:16,pageNumber:'none',blocks: [{ type: 'paragraph', content: [] }],
 });
 
 // Old synchronized copies become independent blocks. Resolve from the complete

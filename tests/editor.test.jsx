@@ -52,6 +52,10 @@ describe('document semantics',()=>{
 describe('find and replace',()=>{
  it('finds across formatted text and replaces all in one undoable operation',()=>{const e=create([{type:'paragraph',content:[{type:'text',text:'he',styles:{bold:true}},{type:'text',text:'llo hello',styles:{}}]}]);expect(setSearch(e,'hello')).toHaveLength(2);replaceSearch(e,'world',true);expect(e.document[0].content.map(c=>c.text).join('')).toBe('world world');e.undo();expect(e.document[0].content.map(c=>c.text).join('')).toBe('hello hello')});
  it('supports case-sensitive search',()=>{const e=create([{type:'paragraph',content:'Hello hello HELLO'}]);expect(setSearch(e,'hello')).toHaveLength(3);expect(setSearch(e,'hello',true)).toHaveLength(1)});
+ it('keeps match ranges aligned when lowercasing changes the text length',()=>{
+  const e=create([{type:'paragraph',content:'İİ cat dog'}]);expect(setSearch(e,'cat')).toEqual([{from:6,to:9}]);replaceSearch(e,'cow',true);expect(e.document[0].content.map(c=>c.text).join('')).toBe('İİ cow dog');
+  const t=create([{type:'paragraph',content:'İstanbul cat ẞ cat'}]);const found=setSearch(t,'cat');expect(found).toEqual([{from:12,to:15},{from:18,to:21}]);expect(setSearch(t,'İstanbul')).toEqual([{from:3,to:11}]);const g=create([{type:'paragraph',content:'ΟΔΟΣ ΟΔΟΣ'}]);expect(setSearch(g,'ΟΔΟΣ')).toHaveLength(2);
+ });
 });
 describe('local persistence',()=>{
  it('round-trips document layout and data attachments',async()=>{const doc={...emptyDocument(),title:'저장 검증',blocks:[{type:'columnList',children:[{type:'column',children:[{type:'image',props:{url:'data:image/png;base64,YQ=='}}]},{type:'column',children:[{type:'paragraph',content:'한글'}]}]}]};await saveDocument(doc);expect(await loadDocument()).toEqual(doc)});
