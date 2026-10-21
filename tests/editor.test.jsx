@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it} from 'vitest';
 import {BlockNoteEditor,getNodeById} from '@blocknote/core';
 import {NodeSelection} from 'prosemirror-state';
 import {schema,safeWebUrl} from '../src/blocks';
-import {editingConventions} from '../src/editing-conventions';
+import {editingConventions,blockTypeUpdate} from '../src/editing-conventions';
 import {cloneBlocks,updateSelectedBlocks,setDividerOpacity} from '../src/menus';
 import {selectBlocks} from '../src/block-selection';
 import {searchExtension,setSearch,replaceSearch,searchKey} from '../src/search';
@@ -75,6 +75,16 @@ describe('block type shortcuts through the editor keymap',()=>{
  it('still converts a text block',()=>{
   const e=create();e.setTextCursorPosition('a','end');press(e,'1',{altKey:true});expect(e.getBlock('a')).toMatchObject({type:'heading',props:{level:1}});
   press(e,'5',{shiftKey:true});expect(e.getBlock('a').type).toBe('bulletListItem');expect(e.getBlock('a').content[0].text).toBe('hello');
+ });
+ it('turns a toggle heading into a plain heading with the shortcut',()=>{
+  const e=create([{id:'h',type:'heading',props:{level:1,isToggleable:true},content:'hi'}]);e.setTextCursorPosition('h','end');press(e,'2',{altKey:true});
+  expect(e.getBlock('h').props).toMatchObject({level:2,isToggleable:false});
+ });
+ it('turns a toggle heading into a plain heading from the block menu',()=>{
+  for(const [type,props,expected] of [['heading',{level:2},false],['heading',{level:2,isToggleable:true},true],['paragraph',undefined,undefined]]){
+   const e=create([{id:'h',type:'heading',props:{level:1,isToggleable:true},content:'hi'}]);updateSelectedBlocks(e,e.getBlock('h'),blockTypeUpdate(type,props));
+   expect(e.getBlock('h').type).toBe(type);if(type==='heading')expect(e.getBlock('h').props).toMatchObject({level:2,isToggleable:expected});
+  }
  });
  it('still converts a code block, whose content is plain text',()=>{
   for(const [key,modifiers,type] of [['1',{altKey:true},'heading'],['0',{altKey:true},'paragraph'],['5',{shiftKey:true},'bulletListItem']]){
