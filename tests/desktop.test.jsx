@@ -25,7 +25,8 @@ describe('desktop file boundaries',()=>{
  });
  it('validates PDFs and document snapshots before writing',()=>{
   expect(validatePDF({paper:'A4',pageCount:2,html:'<html></html>'}).pageCount).toBe(2);
-  for(const job of [{paper:'A5',pageCount:1,html:''},{paper:'A3',pageCount:301,html:''},{paper:'A4',pageCount:1.5,html:''},{paper:'A4',pageCount:1,html:123}])expect(()=>validatePDF(job)).toThrow();
+  for(const job of [{paper:'A5',pageCount:1,html:''},{paper:'A3',pageCount:301,html:''},{paper:'A4',pageCount:1.5,html:''},{paper:'A4',pageCount:1,html:123}])expect(()=>validatePDF(job)).toThrow('올바른 용지와 페이지 구성이 필요합니다.');
+  expect(()=>validatePDF({paper:'A4',pageCount:1,html:'x'.repeat(100*1024*1024+1)})).toThrow('문서가 너무 커서 PDF로 저장할 수 없습니다');
   expect(JSON.parse(serializeDraft(emptyDocument())).version).toBe(2);
   expect(()=>serializeDraft({blocks:[]})).toThrow();
   expect(safeName('../../my:resume.pdf')).not.toMatch(/[/:]/);
