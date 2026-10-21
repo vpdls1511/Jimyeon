@@ -5,7 +5,7 @@ import {schema} from '../src/blocks';
 import {notionBehavior} from '../src/notion-behavior';
 import {blockSelection,BlockRangeSelection,selectBlocks,selectedBlockIds} from '../src/block-selection';
 import {duplicate} from '../src/menus';
-import {capturePaperSource} from '../src/paper';
+import {freezeLiveSource} from '../src/live-print';
 
 let editors=[];
 function create(blocks){
@@ -131,8 +131,8 @@ describe('selected block commands and history',()=>{
    expect(Selection.fromJSON(view.state.doc,selection.toJSON()).eq(selection)).toBe(true);
    editor.updateBlock('a',{content:'longer before selection'});expect(selectedBlockIds(editor)).toEqual(['b','e']);expect(view.state.selection.content().content.childCount).toBe(2);
  });
- it('prints no block-selection highlight and does not modify the live selection',()=>{
+ it('prints no block-selection highlight and does not modify the live selection',async()=>{
    const {editor,panel}=create([paragraph('a'),paragraph('b')]);selectBlocks(editor,['a','b']);expect(panel.querySelector('[data-block-range-selected]')).not.toBeNull();
-   const html=capturePaperSource(panel,{font:'default',title:''});expect(html).not.toContain('data-block-range-selected');expect(selectedBlockIds(editor)).toEqual(['a','b']);
+   const html=(await freezeLiveSource(panel,{title:''})).outerHTML;expect(html).not.toContain('data-block-range-selected');expect(selectedBlockIds(editor)).toEqual(['a','b']);
  });
 });
