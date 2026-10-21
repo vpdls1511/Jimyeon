@@ -22,7 +22,7 @@ Mac은 DMG를 열어 Jimyeon을 응용 프로그램 폴더로 옮깁니다. Wind
 - 저장 요청 중복 실행 방지와 저장 취소·실패 후 재시도 처리
 - 새 버전이 main에 반영되면 자동 빌드·검증·릴리즈 공개. 이미 공개된 버전은 재배포하지 않음
 
-별도 에이전트의 독립 리뷰와 재검토를 반영했습니다. [PR #2](https://github.com/vpdls1511/Jimyeon/pull/2), [이슈 #1](https://github.com/vpdls1511/Jimyeon/issues/1).
+독립 리뷰와 재검토를 반영했습니다. [PR #2](https://github.com/vpdls1511/Jimyeon/pull/2), [이슈 #1](https://github.com/vpdls1511/Jimyeon/issues/1).
 
 ### 확인 범위
 
