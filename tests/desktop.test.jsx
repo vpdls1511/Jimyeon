@@ -4,6 +4,7 @@ import {mkdtemp,readFile,rm,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {openDB} from 'idb';
+import {IDBFactory} from 'fake-indexeddb';
 import {saveDocument,loadDocument,emptyDocument} from '../src/storage';
 const {bundlePath,validatePDF,serializeDraft,safeName,externalURL,atomicWrite,resolveImage}=createRequire(import.meta.url)('../electron/files.cjs');
 
@@ -57,6 +58,13 @@ describe('desktop autosave',()=>{
   const doc={...emptyDocument(),title:'다시 연 문서',paper:'A4',marginLeft:18,blocks:[{id:'image',type:'image',props:{url:'data:image/png;base64,AAAA'}}]};
   window.desktop={loadDraft:vi.fn().mockResolvedValue(doc)};
   expect(await loadDocument()).toMatchObject(doc);
+ });
+ it('opens the disk draft and only turns off revision history when IndexedDB cannot be opened',async()=>{
+  vi.stubGlobal('indexedDB',new IDBFactory());(await openDB('local-notion-editor',2)).close();
+  vi.resetModules();const storage=await import('../src/storage'),draft={...emptyDocument(),title:'디스크 초안'};
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(draft)};expect(await storage.loadDocument()).toMatchObject(draft);
+  await expect(storage.revision(draft)).resolves.toBeUndefined();expect(await storage.listRevisions()).toEqual([]);
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(null)};await expect(storage.loadDocument()).rejects.toThrow();
  });
  it('propagates disk errors so closing can be canceled',async()=>{
   window.desktop={saveDraft:vi.fn().mockRejectedValue(Error('disk full'))};

@@ -24,7 +24,12 @@ function createDraftStore(folder, write = atomicWrite) {
         primaryValid = false;
         if (error.code === 'ENOENT') return null;
         try { return await read(previous); }
-        catch { throw Error('자동 저장 문서를 읽지 못했습니다. 저장된 문서 파일을 가져와 주세요.'); }
+        catch {
+          // Autosave replaces both drafts next, so keep unreadable copies for manual recovery.
+          const stamp = Date.now();
+          for (const file of [current, previous]) await fs.copyFile(file, file.replace(/\.json$/, `.corrupt-${stamp}.json`)).catch(() => {});
+          throw Error('자동 저장 문서를 읽지 못했습니다. 저장된 문서 파일을 가져와 주세요.');
+        }
       }
     },
     save(doc) {

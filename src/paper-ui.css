@@ -42,6 +42,7 @@
 .resizing-columns,.resizing-columns *{cursor:col-resize!important;user-select:none!important}
 @media print{.column-resize-layer{display:none!important}}
 .pagination-warning{position:sticky;bottom:12px;max-width:650px;margin:12px auto;background:#fff4df;border:1px solid #dfbd83;color:#775523;padding:12px;font-size:12px;border-radius:6px;z-index:25}
+.load-failure{flex:none;display:flex;align-items:center;gap:8px;padding:7px 16px;background:#fff4df;border-bottom:1px solid #dfbd83;color:#775523;font-size:12px}.load-failure span{flex:1}.load-failure button{display:flex;align-items:center;padding:5px 9px}
 .bn-editor .formatted-block{padding-top:var(--block-before,0pt);padding-bottom:var(--block-after,var(--block-gap,0pt))}
 .live-document .bn-editor .bn-inline-content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;line-height:inherit;color:#e01e5a;background:#f8f8f8;border:1px solid #ddd;border-radius:3px;padding:2px 4px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .live-document .bn-editor [data-content-type=codeBlock] code{color:inherit;background:transparent;border:0;border-radius:0;padding:0;font-size:inherit}

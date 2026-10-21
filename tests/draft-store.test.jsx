@@ -1,6 +1,6 @@
 import {it,expect,vi} from 'vitest';
 import {createRequire} from 'node:module';
-import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,writeFile,rm,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {emptyDocument} from '../src/document';
@@ -26,6 +26,14 @@ it('keeps save order and the last valid backup when repairing a corrupt primary'
  const recovered=createDraftStore(folder);expect(await recovered.load()).toEqual(a);await recovered.save(a);
  expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8'))).toEqual(a);
  expect(JSON.parse(await readFile(path.join(folder,'document.previous.json'),'utf8'))).toEqual(a);
+}));
+it('keeps unreadable drafts for manual recovery before autosave replaces them',()=>fixture(async folder=>{
+ await writeFile(path.join(folder,'document.json'),'{"title":"잘린 문서');await writeFile(path.join(folder,'document.previous.json'),'{"title":"잘린 이전 문서');
+ const store=createDraftStore(folder);await expect(store.load()).rejects.toThrow('자동 저장 문서를 읽지 못했습니다');
+ await store.save({...emptyDocument(),title:'first'});await store.save({...emptyDocument(),title:'second'});
+ const files=await readdir(folder),kept=name=>readFile(path.join(folder,files.find(file=>file.startsWith(name+'.corrupt-'))),'utf8');
+ expect(files.filter(file=>file.includes('.corrupt-'))).toHaveLength(2);expect(await kept('document')).toBe('{"title":"잘린 문서');expect(await kept('document.previous')).toBe('{"title":"잘린 이전 문서');
+ expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8')).title).toBe('second');
 }));
 it('retries a failed save without treating it as successfully cached',()=>fixture(async folder=>{
  const write=vi.fn().mockRejectedValueOnce(Error('disk full')).mockImplementation(atomicWrite),store=createDraftStore(folder,write),doc=emptyDocument();
