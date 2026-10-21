@@ -80,12 +80,27 @@ describe('importing other files',()=>{
   expect(title()).toBe('');expect(document.querySelector('.page-icon')).toBeNull();
   await wait(400);expect((await stored())).toMatchObject({title:'',icon:''});
  });
+ it('starts md, html and text imports from new-document defaults while a document file keeps its own properties',async()=>{
+  const decorated=title=>doc(title,'L 본문',{icon:'📄',cover:'data:image/png;base64,YQ==',locked:true,paper:'A3'});
+  const locked=()=>document.querySelector('.locked-note'),icon=()=>document.querySelector('.page-icon'),cover=()=>document.querySelector('.cover');
+  await importDocument(decorated('L 기획서'));expect(locked()).not.toBeNull();expect(icon()).not.toBeNull();expect(cover()).not.toBeNull();
+  for(const [name,text,body] of [['새글.md','# 안녕','안녕'],['새글.html','<p>웹</p>','웹'],['새글.txt','글','글']]){
+   await importDocument(decorated('L 기획서 '+name));
+   await importFile(name,text);await vi.waitFor(()=>expect(title()).toBe('새글'));expect(view().textContent).toBe(body);
+   expect(locked()).toBeNull();expect(icon()).toBeNull();expect(cover()).toBeNull();
+   await wait(400);expect(await stored()).toMatchObject({title:'새글',icon:'',cover:'',locked:false,paper:'A4'});
+  }
+  await importDocument(decorated('M 기획서'));expect(locked()).not.toBeNull();expect(icon()).not.toBeNull();expect(cover()).not.toBeNull();
+  await wait(400);expect(await stored()).toMatchObject({locked:true,icon:'📄',paper:'A3'});
+ });
  it('adds a revision of the previous document only when the import succeeds',async()=>{
   await importDocument(doc('N 기획서','N 본문'));
-  const titles=async()=>(await listRevisions()).map(v=>v.doc.title),before=(await listRevisions()).length;
+  const before=await listRevisions();
   await importFile('깨진 문서.jimyeon','{"broken');await vi.waitFor(()=>expect(toast()).toBe('문서 파일이 손상되었거나 형식이 올바르지 않습니다.'));
-  await wait(100);expect((await listRevisions()).length).toBe(before);expect(title()).toBe('N 기획서');
+  const after=await listRevisions();expect(after.length).toBe(before.length);expect(after).toEqual(before);expect(title()).toBe('N 기획서');expect(body()).toBe('N 본문');
   await importDocument(doc('O 이력서','O 본문'));
-  expect(await titles()).toContain('N 기획서');expect((await listRevisions()).length).toBe(before+1);
+  expect((await listRevisions())[0].doc.title).toBe('N 기획서');
+  await importFile('P 회의록.md','# P 본문');await vi.waitFor(()=>expect(title()).toBe('P 회의록'));
+  expect((await listRevisions())[0].doc.title).toBe('O 이력서');
  });
 });
