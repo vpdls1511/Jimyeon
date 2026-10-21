@@ -43,3 +43,13 @@ describe('autosave when a browser tab is hidden or closed',()=>{
   act(()=>{edit('또 ');hide()});await wait(50);act(()=>hide());expect(saveDocument).toHaveBeenCalledTimes(2);await wait(50);expect(text(await stored())).toBe('또 다시 수정 초안');
  });
 });
+it('does not overwrite a newer document from another tab when this tab saves a document file',async()=>{
+ await saveFromOtherTab(doc('다른 탭에서 쓴 최신 내용'));
+ URL.createObjectURL=vi.fn(()=>'blob:document');URL.revokeObjectURL=()=>{};
+ try{
+  await act(async()=>document.querySelector('#save-json').click());
+  await act(async()=>document.querySelector('form[aria-labelledby="save-document-title"]').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  await vi.waitFor(()=>expect(URL.createObjectURL).toHaveBeenCalledOnce());
+  await wait(400);expect(saveDocument).not.toHaveBeenCalled();expect(text(await stored())).toBe('다른 탭에서 쓴 최신 내용');
+ }finally{delete URL.createObjectURL;delete URL.revokeObjectURL}
+});
