@@ -76,7 +76,7 @@ describe('dragging onto the side edge of a block',()=>{
   const fire=(element,type,clientX,clientY)=>{const event=new Event(type,{bubbles:true,cancelable:true});Object.assign(event,{clientX,clientY,dataTransfer});element.dispatchEvent(event)};
   const drop=()=>{fire(target,'drop',105,50);fire(target,'dragend',105,50)};
   const cursor=()=>nestedColumnDropCursor.hooks.computeDropPosition({event:{clientX:105,clientY:50},view,defaultPosition:'default'});
-  return {e,view,at,fire,drop,cursor,source:view.nodeDOM(at('source')).querySelector('.bn-block-content')};
+  return {e,view,at,fire,drop,cursor,dataTransfer,source:view.nodeDOM(at('source')).querySelector('.bn-block-content')};
  }
  const texts=e=>e.document.map(b=>[b.type,b.content?.map(c=>c.text).join('')]);
  it('moves only the selected text and keeps the rest of its block',()=>{
@@ -91,5 +91,12 @@ describe('dragging onto the side edge of a block',()=>{
   fire(handle,'dragstart',0,10);expect(cursor()).toEqual({pos:at('target'),orientation:'block-vertical-left'});drop();
   expect(e.document).toHaveLength(1);expect(e.document[0].type).toBe('columnList');
   expect(e.document[0].children.map(c=>c.children.map(b=>b.id))).toEqual([['source'],['target']]);expect(e.getBlock('source').content[0].text).toBe('hello world');
+ });
+ it('still places HTML dropped from outside the editor in a new column',()=>{
+  // No drag started in the editor, so ProseMirror parses the HTML into an open slice.
+  const {e,at,drop,cursor,dataTransfer}=setup();dataTransfer.setData('text/html','<p>a</p><p>b</p>');
+  expect(cursor()).toEqual({pos:at('target'),orientation:'block-vertical-left'});drop();
+  expect(texts(e)[0]).toEqual(['paragraph','hello world']);expect(e.document[1].type).toBe('columnList');
+  expect(e.document[1].children.map(c=>c.children.map(b=>b.content[0].text))).toEqual([['a','b'],['target']]);expect(e.prosemirrorState.doc.check()).toBeUndefined();
  });
 });

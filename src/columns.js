@@ -9,13 +9,15 @@ const row=children=>({type:'columnList',children});
 const includes=(block,id)=>block.id===id||(block.children||[]).some(child=>includes(child,id));
 function locate(blocks,id,parent=null){for(const block of blocks){if(block.id===id)return {block,parent,siblings:blocks};const found=locate(block.children||[],id,block);if(found)return found}}
 // A text selection drags an open slice that still carries its source block ID;
-// only whole blocks (the drag handle) are arranged into columns.
+// only whole blocks (the drag handle) are arranged into columns. Check the
+// editor's own drag (view.dragging): HTML dropped from outside is parsed into
+// an open slice too, but keeps its column drop.
 const textDrag=slice=>slice?.openStart>0||slice?.openEnd>0;
 
 // Keep the existing frames and serialization, with nested rows and pair resizing.
 const nestedDrop=createExtension(({editor})=>({key:'nestedColumnDrop',prosemirrorPlugins:[new Plugin({props:{
  handleDrop(view,event,slice,moved){
-  if(!editor.isEditable||event.dataTransfer?.files?.length||textDrag(slice))return false;
+  if(!editor.isEditable||event.dataTransfer?.files?.length||textDrag(view.dragging?.slice))return false;
   const target=columnDropTarget(event,view);if(!target)return false;
   const blocks=fragmentToBlocks(slice.content);if(!blocks.length)return false;
   moveBeside(editor,blocks,target.id,target.side,{copy:!moved});
