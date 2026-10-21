@@ -13,19 +13,6 @@ npm ci
 npm run app
 ```
 
-### 브라우저에서 실행
-
-```bash
-npm run build
-npm start
-```
-
-`http://127.0.0.1:5174/`에서 편집기를 엽니다. 브라우저 실행의 PDF 저장에는 설치된 Chrome·Edge 같은 Chromium 계열 브라우저가 필요합니다. 자동으로 찾지 못하면 `PUPPETEER_EXECUTABLE_PATH`로 실행 파일 경로를 지정합니다. 브라우저 실행의 문서는 해당 브라우저의 기기 저장소에 남습니다.
-
-## 로컬 개발
-
-Node.js 22.12 이상에서 `npm ci`로 의존성을 설치합니다.
-
 - `npm run dev`: 브라우저 개발 화면
 - `npm run app`: 웹 빌드 후 Electron 실행
 - `npm test`: 자동 검사
@@ -36,6 +23,15 @@ PDF 출력은 Electron 앱 또는 `npm run build` 후 `npm start`에서 확인�
 데스크톱 앱의 자동 저장은 macOS `~/Library/Application Support/ResumeEditor/`, Windows `%APPDATA%\ResumeEditor\`에 보관합니다. 초기 버전 사용자의 문서를 이어받기 위해 저장 경로와 문서 형식 식별자는 유지합니다.
 
 설치 파일 빌드와 릴리즈 배포 절차는 [RELEASING.md](RELEASING.md)를 참고하세요.
+
+### 브라우저에서 실행
+
+```bash
+npm run build
+npm start
+```
+
+`http://127.0.0.1:5174/`에서 편집기를 엽니다. 브라우저 실행의 PDF 저장에는 설치된 Chrome·Edge 같은 Chromium 계열 브라우저가 필요합니다. 자동으로 찾지 못하면 `PUPPETEER_EXECUTABLE_PATH`로 실행 파일 경로를 지정합니다. 브라우저 실행의 문서는 해당 브라우저의 기기 저장소에 남습니다. 브라우저의 사이트 데이터를 지우면 문서도 사라질 수 있으니, 지우기 전에 문서 파일로 저장해 두세요.
 
 ## 변경 확인
 
