@@ -2,8 +2,8 @@ import {afterEach,describe,expect,it} from 'vitest';
 import {BlockNoteEditor,getNodeById} from '@blocknote/core';
 import {NodeSelection} from 'prosemirror-state';
 import {schema,safeWebUrl} from '../src/blocks';
-import {editingConventions} from '../src/editing-conventions';
-import {cloneBlocks,updateSelectedBlocks,setDividerOpacity} from '../src/menus';
+import {editingConventions,blockTypeUpdate} from '../src/editing-conventions';
+import {cloneBlocks,conversions,updateSelectedBlocks,setDividerOpacity} from '../src/menus';
 import {selectBlocks} from '../src/block-selection';
 import {searchExtension,setSearch,replaceSearch,searchKey} from '../src/search';
 import {freezeLiveSource} from '../src/live-print';
@@ -75,6 +75,18 @@ describe('block type shortcuts through the editor keymap',()=>{
  it('still converts a text block',()=>{
   const e=create();e.setTextCursorPosition('a','end');press(e,'1',{altKey:true});expect(e.getBlock('a')).toMatchObject({type:'heading',props:{level:1}});
   press(e,'5',{shiftKey:true});expect(e.getBlock('a').type).toBe('bulletListItem');expect(e.getBlock('a').content[0].text).toBe('hello');
+ });
+ it('turns a toggle heading into a plain heading with the shortcut',()=>{
+  const e=create([{id:'h',type:'heading',props:{level:1,isToggleable:true},content:'hi'}]);e.setTextCursorPosition('h','end');press(e,'2',{altKey:true});
+  expect(e.getBlock('h').props).toMatchObject({level:2,isToggleable:false});
+ });
+ it('applies the block menu conversion entries so heading changes state the toggle',()=>{
+  const entry=name=>{const [,type,props]=conversions.find(c=>c[0]===name);return blockTypeUpdate(type,props)};
+  for(const [name,expected] of [['제목 2',{type:'heading',props:{level:2,isToggleable:false}}],['토글 제목 2',{type:'heading',props:{level:2,isToggleable:true}}],['텍스트',{type:'paragraph'}]]){
+   const e=create([{id:'h',type:'heading',props:{level:1,isToggleable:true},content:'hi'}]);updateSelectedBlocks(e,e.getBlock('h'),entry(name));
+   expect(e.getBlock('h')).toMatchObject(expected);
+  }
+  const e=create([{id:'p',type:'heading',props:{level:2},content:'hi'}]);updateSelectedBlocks(e,e.getBlock('p'),entry('토글 제목 1'));expect(e.getBlock('p').props).toMatchObject({level:1,isToggleable:true});
  });
  it('still converts a code block, whose content is plain text',()=>{
   for(const [key,modifiers,type] of [['1',{altKey:true},'heading'],['0',{altKey:true},'paragraph'],['5',{shiftKey:true},'bulletListItem']]){
