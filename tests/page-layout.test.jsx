@@ -36,7 +36,14 @@ describe('physical page settings',()=>{
   expect(migrateDocument({small:true}).titleFontSize).toBe(28.5);expect(migrateDocument({fontSize:12,titleFontSize:42}).titleFontSize).toBe(42);
   expect(pageSettings({titleFontSize:200}).titleFontSize).toBe(96);expect(pageSettings({titleFontSize:-1}).titleFontSize).toBe(8);
  });
- it('validates imported settings and reserves footer space only when numbering is enabled',()=>{
+ it('keeps the page number inside the bottom margin for every base font size',()=>{
+  for(const fontSize of [8,12,15,18,24]){
+    const p=pageMetrics({fontSize,marginBottom:0,pageNumber:'center'}),s=footerStyle({fontSize,marginBottom:0,pageNumber:'center'});
+    expect(parseFloat(s.bottom)+parseFloat(s.fontSize)*1.5).toBeLessThanOrEqual(p.bottom+.01);
+  }
+  expect(pageSettings({fontSize:24,marginBottom:8,pageNumber:'left'}).marginBottom).toBeGreaterThan(8);
+});
+  it('validates imported settings and reserves footer space only when numbering is enabled',()=>{
   expect(pageSettings({fontSize:100,marginLeft:-3,marginRight:100,pageNumber:'bad'})).toMatchObject({fontSize:24,marginLeft:0,marginRight:60,pageNumber:'none'});
   expect(pageSettings({marginBottom:0,pageNumber:'center'}).marginBottom).toBe(8);expect(pageSettings({marginBottom:0,pageNumber:'none'}).marginBottom).toBe(0);
  });

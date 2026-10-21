@@ -3,6 +3,8 @@ export const PAGE_GAP=28;
 export const PAGE_SIZES={A4:{width:210,height:297},A3:{width:297,height:420}};
 const number=(value,fallback,min,max)=>Number.isFinite(Number(value))?Math.min(max,Math.max(min,Number(value))):fallback;
 
+// Footer text height (1.5 line) plus its bottom offset must fit inside the bottom margin.
+export const minNumberMargin=fontSize=>{const h=Math.max(8,fontSize-3)*96/72*1.5/PX_PER_MM;return Math.max(8,Math.ceil(Math.max(3+h,2*h-4)))};
 export function pageSettings(meta={}){
  const pageNumber=['none','left','center','right'].includes(meta.pageNumber)?meta.pageNumber:'none';
  const fontSize=number(meta.fontSize,meta.small?10.5:12,8,24);
@@ -14,7 +16,7 @@ export function pageSettings(meta={}){
   blockGap:number(meta.blockGap,0,0,48),
   linkColor:/^#[\da-f]{6}$/i.test(meta.linkColor)?meta.linkColor:'#2365a8',
   marginTop:number(meta.marginTop,16,0,60),
-  marginBottom:number(meta.marginBottom,16,pageNumber==='none'?0:8,60),
+  marginBottom:number(meta.marginBottom,16,pageNumber==='none'?0:minNumberMargin(fontSize),60),
   marginLeft:number(meta.marginLeft,16,0,60),
   marginRight:number(meta.marginRight,16,0,60),pageNumber,
  };
