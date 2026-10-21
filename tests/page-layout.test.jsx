@@ -1,12 +1,20 @@
+import React,{act} from 'react';
+import {createRoot} from 'react-dom/client';
 import {afterEach,describe,expect,it,vi} from 'vitest';
+import {MantineProvider} from '@mantine/core';
 import {BlockNoteEditor} from '@blocknote/core';
+import * as locales from '@blocknote/core/locales';
+import {BlockNoteView} from '@blocknote/mantine';
 import {schema} from '../src/blocks';
 import {emptyDocument,migrateDocument} from '../src/document';
 import {footerStyle,gapBefore,pageMetrics,pageSettings,pageVariables,PAGE_GAP,PX_PER_MM} from '../src/page-settings';
 import {livePagination,paginationKey,createLivePaginator} from '../src/live-pagination';
 import {blockSelection,selectBlocks,selectedBlockIds} from '../src/block-selection';
 import {freezeLiveSource,livePrintJob} from '../src/live-print';
+import {loadMathRenderer,prepareMath} from '../src/math-view';
 
+// jsdom gives MathML elements no style to freeze, so render only KaTeX's HTML half.
+vi.mock('katex',async importOriginal=>{const katex=(await importOriginal()).default;return {default:{...katex,renderToString:(expression,options)=>katex.renderToString(expression,{...options,output:'html'})}}});
 afterEach(()=>document.body.replaceChildren());
 it('suspends background pagination and resumes once the window is visible',async()=>{
  vi.useFakeTimers();let hidden=true;
@@ -78,5 +86,28 @@ describe('PDF uses the live page layout',()=>{
  it('cuts the same live canvas into physical sheets without reflow and emits per-page numbering',async()=>{
   const metrics=pageMetrics({paper:'A4',pageNumber:'left'}),job=await livePrintJob(source(),{title:'제목',paper:'A4',pageNumber:'left'},{count:2,metrics});
   const doc=new DOMParser().parseFromString(job.html,'text/html');expect(doc.querySelectorAll('.printed-sheet')).toHaveLength(2);expect([...doc.querySelectorAll('.printed-page-number')].map(n=>n.textContent)).toEqual(['1/2','2/2']);expect(parseFloat(doc.querySelectorAll('.frozen-document')[1].style.top)).toBeCloseTo(-metrics.height-PAGE_GAP);expect(job.pageCount).toBe(2);expect(job.html).toContain('210mm 297mm');
+ });
+ it('prints neither empty-block hints nor editing controls, keeping their measured boxes for the page cuts',async()=>{
+  globalThis.IS_REACT_ACT_ENVIRONMENT=true;localStorage.setItem('toggle-toggle','true');
+  const hint="글을 입력하거나 '/' 키로 명령어 사용",editor=BlockNoteEditor.create({schema,dictionary:{...locales.ko,placeholders:{...locales.ko.placeholders,default:hint}},initialContent:[{type:'paragraph',content:'본문'},{type:'heading'},{type:'bulletListItem'},{type:'tabs',children:[{type:'tabPanel',props:{label:'첫 탭'},children:[{type:'paragraph',content:'탭 내용'}]}]},{id:'toggle',type:'toggleListItem',content:'토글 제목'},{type:'equation'},{type:'embed'},{type:'image'},{id:'last',type:'paragraph'}]});
+  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+  const shown=node=>{for(let el=node.nodeType===1?node:node.parentElement;el;el=el.parentElement){if(el.style.display==='none')return false;if(el.style.visibility)return el.style.visibility!=='hidden'}return true};
+  const leftovers=['＋','비어 있는 토글입니다','완료','입력하세요','링크 삽입','이미지 추가'];
+  try{
+   await act(async()=>root.render(<MantineProvider env="test"><div className="live-document"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}/></div></MantineProvider>));
+   const source=host.querySelector('.live-document');await act(()=>loadMathRenderer());await prepareMath(source);act(()=>editor.setTextCursorPosition('last'));
+   for(const text of leftovers)expect(source.textContent).toContain(text);expect(source.querySelector('[data-is-empty-and-focused]')).not.toBeNull();
+   const job=await livePrintJob(source,{title:'',paper:'A4',pageNumber:'none'},{count:1,metrics:pageMetrics({paper:'A4'})}),doc=new DOMParser().parseFromString(job.html,'text/html'),walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);
+   let printed='';for(let node;(node=walker.nextNode());)if(shown(node))printed+=node.data+'\n';
+   expect(printed).toContain('본문');expect(printed).toContain('첫 탭');expect(printed).toContain('토글 제목');
+   for(const text of leftovers)expect(printed).not.toContain(text);
+   expect([...doc.querySelectorAll('.frozen-document textarea,.frozen-document input:not([type=checkbox])')].filter(shown)).toEqual([]);
+   // Controls stay in place, so the live page breaks still line up with the printed sheets.
+   for(const selector of ['.tabs-bar button[title="탭 추가"]','.bn-toggle-add-block-button','.equation form','.web-block form','.bn-add-file-button'])expect(doc.querySelector(`.frozen-document ${selector}`)).not.toBeNull();
+   // Empty-block hints are pseudo-elements from the copied editor styles; the print styles must hide them.
+   expect(job.html).toContain(JSON.stringify(hint));
+   const sheet=document.createElement('style');sheet.textContent=[...doc.querySelectorAll('style')].map(style=>style.textContent).join('\n');document.head.append(sheet);const rules=[...sheet.sheet.cssRules];sheet.remove();
+   expect(rules.some(rule=>/\.bn-block-content::?after$/.test(rule.selectorText)&&rule.style.getPropertyValue('visibility')==='hidden'&&rule.style.getPropertyPriority('visibility')==='important')).toBe(true);
+  }finally{act(()=>root.unmount());editor._tiptapEditor.destroy();localStorage.clear()}
  });
 });
