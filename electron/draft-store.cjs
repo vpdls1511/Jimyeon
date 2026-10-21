@@ -27,6 +27,8 @@ function createDraftStore(folder, write = atomicWrite) {
   }
   return {
     async load() {
+      // A reopened window loads again; only files unreadable now may be moved aside.
+      unreadable.clear();
       try {
         const doc = await read(current);
         savedHash = digest(serializeDraft(doc)); primaryValid = true;
@@ -35,7 +37,8 @@ function createDraftStore(folder, write = atomicWrite) {
         primaryValid = false;
         if (error.code === 'ENOENT') return null;
         unreadable.add(current);
-        try { return await read(previous); }
+        // The mark lets the editor say why an older draft opened; it is not a document field, so it is never saved.
+        try { return {...await read(previous), restoredFromPrevious: true}; }
         catch { unreadable.add(previous); throw Error('자동 저장 문서를 읽지 못했습니다. 저장된 문서 파일을 가져와 주세요.'); }
         finally { await setAside().catch(() => {}); }
       }
