@@ -98,7 +98,6 @@ describe('importing other files',()=>{
 });
 describe('notifications',()=>{
  it('keeps the latest toast for its full 4.5 seconds when toasts follow each other',async()=>{
-  const toast=()=>document.querySelector('.toast')?.textContent;
   vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});
   try{
    await importFile('잘못.json','{"x":1}');await vi.waitFor(()=>expect(toast()).toBe('이 에디터에서 저장한 문서를 선택하세요.'));
