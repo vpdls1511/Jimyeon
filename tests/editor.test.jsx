@@ -54,7 +54,7 @@ describe('find and replace',()=>{
  it('supports case-sensitive search',()=>{const e=create([{type:'paragraph',content:'Hello hello HELLO'}]);expect(setSearch(e,'hello')).toHaveLength(3);expect(setSearch(e,'hello',true)).toHaveLength(1)});
  it('keeps match ranges aligned when lowercasing changes the text length',()=>{
   const e=create([{type:'paragraph',content:'İİ cat dog'}]);expect(setSearch(e,'cat')).toEqual([{from:6,to:9}]);replaceSearch(e,'cow',true);expect(e.document[0].content.map(c=>c.text).join('')).toBe('İİ cow dog');
-  const t=create([{type:'paragraph',content:'İstanbul cat ẞ cat'}]);const found=setSearch(t,'cat');expect(found).toEqual([{from:12,to:15},{from:18,to:21}]);expect(setSearch(t,'İstanbul')).toEqual([{from:3,to:11}]);
+  const t=create([{type:'paragraph',content:'İstanbul cat ẞ cat'}]);const found=setSearch(t,'cat');expect(found).toEqual([{from:12,to:15},{from:18,to:21}]);expect(setSearch(t,'İstanbul')).toEqual([{from:3,to:11}]);const g=create([{type:'paragraph',content:'ΟΔΟΣ ΟΔΟΣ'}]);expect(setSearch(g,'ΟΔΟΣ')).toHaveLength(2);
  });
 });
 describe('local persistence',()=>{
