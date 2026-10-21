@@ -2,6 +2,7 @@ import {collectStyles} from './paper';
 import {footerStyle,PAGE_SIZES} from './page-settings';
 
 const dataURL=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)});
+const videoFrame=video=>{try{const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);return canvas.toDataURL('image/jpeg',.92)}catch{return ''}};
 const escape=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 // Keep geometry and typography, without duplicating every inherited UI theme
 // variable on every element and on every printed page.
@@ -18,6 +19,9 @@ export async function freezeLiveSource(source,meta){
   if(node.classList.contains('find-match'))clone.style.setProperty('background-color','transparent','important');
  });
  copy.querySelectorAll('.page-tools,.page-emoji,.cover-actions,.locked-note,.bn-side-menu,.bn-toolbar,.bn-suggestion-menu,.bn-file-panel,.bn-file-block-top,.bn-resize-handle,.column-resize-layer,.bn-trailing-block,.web-edit,.button-config,.button-settings,.emoji-popover,script').forEach(node=>node.remove());
+ // In-flow editing controls and hints keep their measured box so the live page cuts still line up, but print nothing.
+ // An equation being edited prints only its preview, and an empty expression's hint prints nothing.
+ copy.querySelectorAll('.tabs-bar button[title="탭 추가"],.tabs-bar input,.inline-equation input,.bn-toggle-add-block-button,.bn-add-file-button,.web-block form,.equation form,.table-of-contents>span,[data-math-hint]').forEach(node=>[node,...node.querySelectorAll('*')].forEach(el=>{if(!el.closest('.equation-preview')||el.closest('[data-math-hint]'))el.style.setProperty('visibility','hidden','important')}));
  for(const node of copy.querySelectorAll('[data-block-range-selected]'))node.removeAttribute('data-block-range-selected');
  // The computed blue background is a transient decoration, too.
  originals.forEach((node,i)=>{if(node.hasAttribute('data-block-range-selected'))clones[i].style.setProperty('background-color','transparent','important')});
@@ -25,6 +29,14 @@ export async function freezeLiveSource(source,meta){
  if(title){const text=document.createElement('div');text.id=title.id;text.style.cssText=title.style.cssText;text.textContent=meta.title||'';title.replaceWith(text)}
  copy.querySelectorAll('select').forEach(select=>{const original=originals[clones.indexOf(select)],label=document.createElement('div');label.style.cssText=select.style.cssText;label.textContent=original?.selectedOptions?.[0]?.textContent||'';select.replaceWith(label)});
  copy.querySelectorAll('[data-content-type="pageBreak"]').forEach(node=>node.style.setProperty('opacity','0','important'));
+ // Players cannot run in a PDF: keep each measured box and show the video's current frame, or a link card.
+ copy.querySelectorAll('iframe,video,audio').forEach(media=>{
+  const original=originals[clones.indexOf(media)],frame=media.tagName==='VIDEO'&&original.readyState>1&&original.videoWidth&&videoFrame(original),src=original.currentSrc||original.src||'',url=/^https?:/i.test(src)?src:'',box=document.createElement(frame?'img':'div');
+  box.style.cssText=media.style.cssText;box.style.setProperty('height',getComputedStyle(original).height);
+  if(frame)box.src=frame;
+  else{const label=document.createElement(url?'a':'div');if(url)label.href=url;label.style.cssText='display:block;padding:14px;font-size:12px;line-height:1.5;color:#555;text-decoration:none;overflow-wrap:anywhere';label.textContent=[{IFRAME:'외부 임베드',VIDEO:'영상',AUDIO:'오디오'}[media.tagName],url||media.closest('[data-name]')?.dataset.name].filter(Boolean).join(' · ');box.className='print-media-card';box.append(label);box.style.setProperty('overflow','hidden');box.style.setProperty('background-color','#f7f7f5');if(box.style.display==='inline')box.style.setProperty('display','inline-block')}
+  media.replaceWith(box);
+ });
  await Promise.all([...copy.querySelectorAll('img')].map(async img=>{
   if(!img.src||img.src.startsWith('data:'))return;
   const url=new URL(img.src,location.href);
@@ -53,6 +65,7 @@ export async function livePrintJob(source,meta,layout){
  .printed-sheet{width:${p.width}px;height:${p.height}px;overflow:hidden;position:relative;break-after:page;page-break-after:always;background:#fff;color:#37352f}
  .printed-sheet:last-child{break-after:auto;page-break-after:auto}
  .frozen-document{width:${p.width}px!important;pointer-events:none}
+ .frozen-document .bn-block-content::after{visibility:hidden!important}
  .frozen-document,.frozen-document *{break-before:auto!important;break-after:auto!important;break-inside:auto!important;orphans:1;widows:1}
  .printed-page-number{z-index:2}
  .printed-margin{position:absolute;left:0;right:0;background:#fff;z-index:1}

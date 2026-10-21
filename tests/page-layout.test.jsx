@@ -1,12 +1,20 @@
+import React,{act} from 'react';
+import {createRoot} from 'react-dom/client';
 import {afterEach,describe,expect,it,vi} from 'vitest';
+import {MantineProvider} from '@mantine/core';
 import {BlockNoteEditor} from '@blocknote/core';
+import * as locales from '@blocknote/core/locales';
+import {BlockNoteView} from '@blocknote/mantine';
 import {schema} from '../src/blocks';
 import {emptyDocument,migrateDocument} from '../src/document';
 import {FOOTER_LINE_HEIGHT,footerStyle,gapBefore,pageMetrics,pageSettings,pageVariables,PAGE_GAP,PX_PER_MM} from '../src/page-settings';
 import {livePagination,paginationKey,createLivePaginator} from '../src/live-pagination';
 import {blockSelection,selectBlocks,selectedBlockIds} from '../src/block-selection';
 import {freezeLiveSource,livePrintJob} from '../src/live-print';
+import {loadMathRenderer,prepareMath} from '../src/math-view';
 
+// jsdom gives MathML elements no style to freeze, so render only KaTeX's HTML half.
+vi.mock('katex',async importOriginal=>{const katex=(await importOriginal()).default;return {default:{...katex,renderToString:(expression,options)=>katex.renderToString(expression,{...options,output:'html'})}}});
 afterEach(()=>document.body.replaceChildren());
 it('suspends background pagination and resumes once the window is visible',async()=>{
  vi.useFakeTimers();let hidden=true;
@@ -84,8 +92,92 @@ describe('PDF uses the live page layout',()=>{
   const copy=await freezeLiveSource(node,{title:'독립된 페이지 제목',titleFontSize:42,fontSize:12}),printed=copy.querySelector('#document-title');
   expect(printed.tagName).toBe('DIV');expect(printed.style.fontSize).toBe('56px');expect(printed.style.height).toBe('135px');expect(printed.textContent).toBe('독립된 페이지 제목');
  });
+ it('prints embeds, audio and unloaded videos as link cards in their measured boxes instead of players',async()=>{
+  const node=source(),host=document.createElement('div'),embed=document.createElement('div'),editor=BlockNoteEditor.create({schema,initialContent:[{type:'video',props:{url:'data:video/mp4;base64,AAAA',name:'clip.mp4'}},{type:'audio',props:{url:'https://example.com/a.mp3'}}]});
+  embed.className='web-block';embed.innerHTML='<iframe title="임베드" src="https://example.com/embed" style="height:380px"></iframe>';node.append(host,embed);editor.mount(host);
+  try{
+   node.querySelector('video').style.height='225px';node.querySelector('audio').style.height='54px';
+   const before=node.outerHTML,copy=await freezeLiveSource(node,{title:''}),cards=[...copy.querySelectorAll('.print-media-card')];
+   expect(copy.querySelector('iframe,video,audio')).toBeNull();
+   expect(cards.map(card=>card.textContent)).toEqual(['영상 · clip.mp4','오디오 · https://example.com/a.mp3','외부 임베드 · https://example.com/embed']);
+   expect(cards.map(card=>card.style.height)).toEqual(['225px','54px','380px']);expect(cards[2].querySelector('a').href).toBe('https://example.com/embed');
+   expect(node.outerHTML).toBe(before);
+  }finally{editor._tiptapEditor.destroy()}
+ });
+ it('prints a loaded video as its current frame, falling back to a card when the frame cannot be read',async()=>{
+  const node=source(),video=document.createElement('video');video.src='data:video/mp4;base64,AAAA';video.style.cssText='width:400px;height:225px';node.append(video);
+  for(const [key,value] of Object.entries({readyState:4,videoWidth:640,videoHeight:360}))Object.defineProperty(video,key,{value});
+  const context={drawImage:vi.fn()},getContext=vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(context),toDataURL=vi.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('data:image/jpeg;base64,ZnJhbWU=');
+  try{
+   const frame=(await freezeLiveSource(node,{title:''})).querySelector('img');
+   expect(frame.src).toBe('data:image/jpeg;base64,ZnJhbWU=');expect(frame.style.height).toBe('225px');expect(context.drawImage).toHaveBeenCalledWith(video,0,0);
+   toDataURL.mockImplementation(()=>{throw new DOMException('cross-origin frame','SecurityError')});
+   const copy=await freezeLiveSource(node,{title:''});expect(copy.querySelector('img,video')).toBeNull();expect(copy.querySelector('.print-media-card').textContent).toBe('영상');
+  }finally{getContext.mockRestore();toDataURL.mockRestore()}
+ });
  it('cuts the same live canvas into physical sheets without reflow and emits per-page numbering',async()=>{
   const metrics=pageMetrics({paper:'A4',pageNumber:'left'}),job=await livePrintJob(source(),{title:'제목',paper:'A4',pageNumber:'left'},{count:2,metrics});
   const doc=new DOMParser().parseFromString(job.html,'text/html');expect(doc.querySelectorAll('.printed-sheet')).toHaveLength(2);expect([...doc.querySelectorAll('.printed-page-number')].map(n=>n.textContent)).toEqual(['1/2','2/2']);expect(parseFloat(doc.querySelectorAll('.frozen-document')[1].style.top)).toBeCloseTo(-metrics.height-PAGE_GAP);expect(job.pageCount).toBe(2);expect(job.html).toContain('210mm 297mm');
+ });
+ const hint="글을 입력하거나 '/' 키로 명령어 사용";
+ const shown=node=>{for(let el=node.nodeType===1?node:node.parentElement;el;el=el.parentElement){if(el.style.display==='none')return false;if(el.style.visibility)return el.style.visibility!=='hidden'}return true};
+ // Mounts the real editor view with the app's Korean hints, as the live page does.
+ async function liveEditor(initialContent){
+  globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+  const editor=BlockNoteEditor.create({schema,dictionary:{...locales.ko,placeholders:{...locales.ko.placeholders,default:hint}},initialContent}),host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+  await act(async()=>root.render(<MantineProvider env="test"><div className="live-document"><BlockNoteView editor={editor} sideMenu={false} slashMenu={false} formattingToolbar={false}/></div></MantineProvider>));
+  const source=host.querySelector('.live-document');await act(()=>loadMathRenderer());await prepareMath(source);
+  return {editor,source,destroy:()=>{act(()=>root.unmount());editor._tiptapEditor.destroy()}};
+ }
+ async function printPage(source){
+  const job=await livePrintJob(source,{title:'',paper:'A4',pageNumber:'none'},{count:1,metrics:pageMetrics({paper:'A4'})}),doc=new DOMParser().parseFromString(job.html,'text/html'),walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);
+  let text='';for(let node;(node=walker.nextNode());)if(shown(node))text+=node.data+'\n';
+  return {job,doc,text};
+ }
+ it('prints neither empty-block hints nor editing controls, keeping their measured boxes for the page cuts',async()=>{
+  localStorage.setItem('toggle-toggle','true');
+  const {editor,source,destroy}=await liveEditor([{type:'paragraph',content:'본문'},{type:'heading'},{type:'bulletListItem'},{type:'tabs',children:[{type:'tabPanel',props:{label:'첫 탭'},children:[{type:'paragraph',content:'탭 내용'}]}]},{id:'toggle',type:'toggleListItem',content:'토글 제목'},{type:'equation'},{type:'embed'},{type:'image'},{id:'last',type:'paragraph'}]);
+  const leftovers=['＋','비어 있는 토글입니다','완료','입력하세요','링크 삽입','이미지 추가'];
+  try{
+   act(()=>editor.setTextCursorPosition('last'));
+   for(const text of leftovers)expect(source.textContent).toContain(text);expect(source.querySelector('[data-is-empty-and-focused]')).not.toBeNull();
+   const {job,doc,text:printed}=await printPage(source);
+   expect(printed).toContain('본문');expect(printed).toContain('첫 탭');expect(printed).toContain('토글 제목');
+   for(const text of leftovers)expect(printed).not.toContain(text);
+   expect([...doc.querySelectorAll('.frozen-document textarea,.frozen-document input:not([type=checkbox])')].filter(shown)).toEqual([]);
+   // Controls stay in place, so the live page breaks still line up with the printed sheets.
+   for(const selector of ['.tabs-bar button[title="탭 추가"]','.bn-toggle-add-block-button','.equation form','.web-block form','.bn-add-file-button'])expect(doc.querySelector(`.frozen-document ${selector}`)).not.toBeNull();
+   // Empty-block hints are pseudo-elements from the copied editor styles; the print styles must hide them.
+   expect(job.html).toContain(JSON.stringify(hint));
+   const sheet=document.createElement('style');sheet.textContent=[...doc.querySelectorAll('style')].map(style=>style.textContent).join('\n');document.head.append(sheet);const rules=[...sheet.sheet.cssRules];sheet.remove();
+   expect(rules.some(rule=>/\.bn-block-content::?after$/.test(rule.selectorText)&&rule.style.getPropertyValue('visibility')==='hidden'&&rule.style.getPropertyPriority('visibility')==='important')).toBe(true);
+  }finally{destroy();localStorage.clear()}
+ });
+ it('prints an equation being edited as its preview only, and leaves out the empty contents and empty expression hints',async()=>{
+  const {source,destroy}=await liveEditor([{type:'tableOfContents'},{id:'saved',type:'equation',props:{expression:'x^2'}},{id:'cleared',type:'equation',props:{expression:'y'}}]);
+  const leftovers=['제목을 추가하면','완료','입력하세요'];
+  try{
+   for(const id of ['saved','cleared'])await act(async()=>source.querySelector(`[data-id="${id}"] .math-button`).click());
+   const input=source.querySelector('[data-id="cleared"] textarea');
+   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'');input.dispatchEvent(new Event('input',{bubbles:true}))});
+   for(const text of leftovers)expect(source.textContent).toContain(text);
+   const {doc,text}=await printPage(source);
+   for(const leftover of leftovers)expect(text).not.toContain(leftover);
+   expect(shown(doc.querySelector('.frozen-document [data-id="saved"] .equation-preview .katex'))).toBe(true);
+   expect([...doc.querySelectorAll('.frozen-document textarea')].filter(shown)).toEqual([]);
+  }finally{destroy()}
+ });
+ it('prints neither the tab name field nor the inline equation field left open in the document',async()=>{
+  const {source,destroy}=await liveEditor([{type:'tabs',children:[{type:'tabPanel',props:{label:'첫 탭'},children:[{type:'paragraph',content:'탭 내용'}]},{type:'tabPanel',props:{label:'둘째 탭'},children:[{type:'paragraph'}]}]},{type:'paragraph',content:[{type:'text',text:'식 ',styles:{}},{type:'inlineEquation',props:{expression:'a+b'}}]}]);
+  try{
+   const dblclick=target=>act(async()=>target.dispatchEvent(new MouseEvent('dblclick',{bubbles:true})));
+   await dblclick([...source.querySelectorAll('.tabs-bar button')].find(button=>button.textContent==='첫 탭'));await dblclick(source.querySelector('.inline-equation'));
+   expect(source.querySelector('.tabs-bar input')).not.toBeNull();expect(source.querySelector('.inline-equation input')).not.toBeNull();
+   const {doc,text}=await printPage(source);
+   expect(text).toContain('둘째 탭');expect(text).toContain('탭 내용');
+   // The fields keep their place so the page cuts still line up, but nothing of them is printed.
+   for(const selector of ['.tabs-bar input','.inline-equation input'])expect(doc.querySelector(`.frozen-document ${selector}`)).not.toBeNull();
+   expect([...doc.querySelectorAll('.frozen-document input')].filter(shown)).toEqual([]);
+  }finally{destroy()}
  });
 });
