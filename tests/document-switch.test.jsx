@@ -96,3 +96,16 @@ describe('importing other files',()=>{
   expect((await listRevisions())[0].doc.title).toBe('O 이력서');
  });
 });
+describe('notifications',()=>{
+ it('keeps the latest toast for its full 4.5 seconds when toasts follow each other',async()=>{
+  const toast=()=>document.querySelector('.toast')?.textContent;
+  vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});
+  try{
+   await importFile('잘못.json','{"x":1}');await vi.waitFor(()=>expect(toast()).toBe('이 에디터에서 저장한 문서를 선택하세요.'));
+   await act(async()=>{vi.advanceTimersByTime(3500)});
+   await importFile('토스트.md','# 토스트');await vi.waitFor(()=>expect(toast()).toBe('문서를 열었습니다.'));
+   await act(async()=>{vi.advanceTimersByTime(4400)});expect(toast()).toBe('문서를 열었습니다.');
+   await act(async()=>{vi.advanceTimersByTime(200)});expect(toast()).toBeUndefined();
+  }finally{vi.useRealTimers()}
+ });
+});
