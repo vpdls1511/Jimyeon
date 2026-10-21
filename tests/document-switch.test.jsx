@@ -80,4 +80,17 @@ describe('importing other files',()=>{
   expect(title()).toBe('');expect(document.querySelector('.page-icon')).toBeNull();
   await wait(400);expect((await stored())).toMatchObject({title:'',icon:''});
  });
+ it('starts md, html and text imports from new-document defaults while a document file keeps its own properties',async()=>{
+  const decorated=title=>doc(title,'L 본문',{icon:'📄',cover:'data:image/png;base64,YQ==',locked:true,paper:'A3'});
+  const locked=()=>document.querySelector('.locked-note'),icon=()=>document.querySelector('.page-icon'),cover=()=>document.querySelector('.cover');
+  await importDocument(decorated('L 기획서'));expect(locked()).not.toBeNull();expect(icon()).not.toBeNull();expect(cover()).not.toBeNull();
+  for(const [name,text,body] of [['새글.md','# 안녕','안녕'],['새글.html','<p>웹</p>','웹'],['새글.txt','글','글']]){
+   await importDocument(decorated('L 기획서 '+name));
+   await importFile(name,text);await vi.waitFor(()=>expect(title()).toBe('새글'));expect(view().textContent).toBe(body);
+   expect(locked()).toBeNull();expect(icon()).toBeNull();expect(cover()).toBeNull();
+   await wait(400);expect(await stored()).toMatchObject({title:'새글',icon:'',cover:'',locked:false,paper:'A4'});
+  }
+  await importDocument(decorated('M 기획서'));expect(locked()).not.toBeNull();expect(icon()).not.toBeNull();expect(cover()).not.toBeNull();
+  await wait(400);expect(await stored()).toMatchObject({locked:true,icon:'📄',paper:'A3'});
+ });
 });
