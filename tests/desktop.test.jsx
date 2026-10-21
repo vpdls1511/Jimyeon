@@ -63,7 +63,7 @@ describe('desktop autosave',()=>{
   vi.stubGlobal('indexedDB',new IDBFactory());(await openDB('local-notion-editor',2)).close();
   vi.resetModules();const storage=await import('../src/storage'),draft={...emptyDocument(),title:'디스크 초안'};
   window.desktop={loadDraft:vi.fn().mockResolvedValue(draft)};expect(await storage.loadDocument()).toMatchObject(draft);
-  await expect(storage.revision(draft)).resolves.toBeUndefined();expect(await storage.listRevisions()).toEqual([]);
+  await expect(storage.revision(draft)).resolves.toBeUndefined();const history=await storage.listRevisions();expect(history).toHaveLength(0);expect(history.unavailable).toBe(true);
   window.desktop={loadDraft:vi.fn().mockResolvedValue(null)};await expect(storage.loadDocument()).rejects.toThrow();
  });
  it('propagates disk errors so closing can be canceled',async()=>{
