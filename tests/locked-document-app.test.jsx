@@ -1,4 +1,5 @@
 import {act} from 'react';
+import {readFileSync} from 'node:fs';
 import {beforeAll,expect,it,vi} from 'vitest';
 import {saveDocument,emptyDocument} from '../src/storage';
 import {replaceSearch} from '../src/search';
@@ -8,6 +9,7 @@ const cover='data:image/png;base64,iVBORw0KGgo=';
 const tiptap=()=>document.querySelector('.ProseMirror').editor,doc=()=>tiptap().state.doc.toJSON();
 const node=id=>{let found;tiptap().state.doc.descendants(n=>{if(n.attrs.id===id)found=n});return found};
 const props=id=>node(id).firstChild.attrs;
+const inBlock=(id,selector)=>document.querySelector(`[data-id="${id}"] ${selector}`);
 const text=id=>node(id).firstChild.textContent;
 const click=el=>act(async()=>el.click());
 const dblclick=el=>act(async()=>{el.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))});
@@ -20,11 +22,15 @@ beforeAll(async()=>{
   {id:'a',type:'paragraph',content:'cat cat'},
   {id:'c',type:'callout',props:{icon:'💡'},content:'메모'},
   {id:'e',type:'equation',props:{expression:'x^2'}},
+  {id:'e0',type:'equation'},
   {id:'i',type:'paragraph',content:['식 ',{type:'inlineEquation',props:{expression:'a+b'}}]},
   {id:'w',type:'bookmark',props:{url:'https://example.com/'}},
+  {id:'w0',type:'bookmark'},
   {id:'b',type:'button',props:{label:'버튼',action:'text',value:'삽입된 문단'}},
   {id:'t',type:'tabs',children:[{id:'p1',type:'tabPanel',props:{label:'탭 1'},children:[{type:'paragraph',content:'첫 탭'}]},{id:'p2',type:'tabPanel',props:{label:'탭 2'},children:[{type:'paragraph',content:'둘째 탭'}]}]},
  ]});
+ // Load the app stylesheet so the lock rules can be checked with computed styles.
+ const style=document.createElement('style');style.textContent=readFileSync('src/style.css','utf8');document.head.append(style);
  const root=document.createElement('div');root.id='root';document.body.append(root);
  await act(async()=>{await import('../src/main.jsx')});await vi.waitFor(()=>expect(document.querySelector('.locked-note')).not.toBeNull());
 },30000);
@@ -43,21 +49,27 @@ it('keeps the body through undo, redo and replace while locked, and find still w
  await click(button('닫기'));
 });
 
+it('hides edit-only controls and the forms that start open while locked, and shows them again once unlocked',async()=>{
+ const display=()=>[inBlock('e0','form'),inBlock('w0','form'),inBlock('b','.button-config'),inBlock('w','.web-edit'),inBlock('t','[title="탭 추가"]')].map(el=>getComputedStyle(el).display);
+ expect(display()).toEqual(Array(5).fill('none'));
+ await menu('편집 잠금 해제');expect(display()).not.toContain('none');await menu('문서 잠금');expect(display()).toEqual(Array(5).fill('none'));
+});
+
 it('keeps blocks unchanged when their controls are used while locked, while tabs can still be switched',async()=>{
  const before=doc();
- // The forms still open here because CSS is not applied in tests, so the guard itself must keep the document.
- await click(document.querySelector('.callout-icon'));await click(button('📌',document.querySelector('.emoji-popover')));
- await click(document.querySelector('.math-button'));const area=document.querySelector('textarea[aria-label="LaTeX 수식"]');
- await type(area,'y^3');await act(async()=>{area.form.requestSubmit()});
- await dblclick(document.querySelector('.inline-equation'));const inline=document.querySelector('input[aria-label="LaTeX 수식"]');
- await type(inline,'c');await key(inline,'Enter');
- await click(button('링크 편집'));const address=document.querySelector('input[aria-label="웹 주소"]');
+ // Enter or Space on a focused button clicks it, so this covers keyboard use as well: the edit forms stay closed.
+ for(const el of [inBlock('c','.callout-icon'),inBlock('e','.math-button')]){el.focus();await click(el)}
+ await dblclick(inBlock('i','.inline-equation'));
+ expect(document.querySelector('.emoji-popover')).toBeNull();expect(inBlock('e','form')).toBeNull();expect(inBlock('i','input')).toBeNull();
+ // Hidden controls and forms are still in the DOM here, so the guard itself must keep the document.
+ for(const [id,value] of [['e0','y^3'],['w0','https://new.example/']]){const field=inBlock(id,'form [aria-label]');await type(field,value);await act(async()=>{field.form.requestSubmit()})}
+ await click(button('링크 편집'));const address=inBlock('w','input[aria-label="웹 주소"]');
  await type(address,'https://changed.example/');await act(async()=>{address.form.requestSubmit()});
  await click(button('버튼 ↗'));await click(button('버튼 설정'));const name=document.querySelector('.button-settings input');
  await type(name,'바뀐 버튼');
  await click(button('탭 추가'));await dblclick(button('탭 1'));const label=document.querySelector('input[aria-label="탭 이름"]');
  if(label){await type(label,'바뀐 탭');await key(label,'Enter')}
- expect(props('c').icon).toBe('💡');expect(props('e').expression).toBe('x^2');expect(props('w').url).toBe('https://example.com/');
+ expect(props('c').icon).toBe('💡');expect(props('e').expression).toBe('x^2');expect(props('e0').expression).toBe('');expect(props('w').url).toBe('https://example.com/');expect(props('w0').url).toBe('');
  expect(props('b').label).toBe('버튼');expect(doc()).toEqual(before);
  // Edit-only inputs stay closed; switching tabs is reading, so it still works.
  expect(label).toBeNull();await click(button('탭 2'));expect(button('탭 2').className).toBe('active');
