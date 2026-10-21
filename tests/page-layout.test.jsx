@@ -185,7 +185,7 @@ describe('PDF uses the live page layout',()=>{
   const metrics=pageMetrics({paper:'A4'}),image='data:image/png;base64,'+'A'.repeat(4000),blockTop=(page,row)=>page*metrics.stride+70+row*95;
   const place=(node,top,height)=>{const box={x:0,y:top,left:0,top,right:metrics.width,bottom:top+height,width:metrics.width,height};node.getBoundingClientRect=()=>box;node.getClientRects=()=>[box]};
   beforeEach(()=>{vi.spyOn(window,'getComputedStyle').mockImplementation(node=>{
-   const box=node.getClientRects()[0],values={display:node.tagName==='IMG'?'inline':'block',position:'static',float:'none',transform:'none','overflow-x':'visible','overflow-y':'visible','margin-top':node.style.marginTop||'0px','padding-top':node.style.paddingTop||'0px',height:box?box.height+'px':'auto'};
+   const box=node.getClientRects()[0],values={display:node.dataset?.display||(node.tagName==='IMG'?'inline':'block'),position:'static',float:node.dataset?.float||'none',transform:'none','overflow-x':'visible','overflow-y':'visible','margin-top':node.style.marginTop||'0px','padding-top':node.style.paddingTop||'0px',height:box?box.height+'px':'auto'};
    return {fontFamily:'sans-serif',getPropertyValue:key=>values[key]||'initial'};
   })});
   afterEach(()=>vi.restoreAllMocks());
@@ -219,6 +219,35 @@ describe('PDF uses the live page layout',()=>{
    expect(parseFloat(group.firstElementChild.style.height)).toBeCloseTo(blockTop(5,0)-4-60);
    expect(group.children[1].textContent).toContain('6쪽 1번 블록');
   },20000);
+  const sheetDoc=(job,index)=>new DOMParser().parseFromString(job.html,'text/html').querySelectorAll('.printed-sheet')[index];
+  const run=node=>livePrintJob(node,{paper:'A4'},{count:8,metrics});
+  it('cuts only inside a flex column and keeps the column height',async()=>{
+   const node=source(8),group=node.querySelector('.bn-block-group'),column=document.createElement('div'),cell=document.createElement('div');
+   column.style.cssText='display:flex;margin-top:0px';column.dataset.display='flex';cell.style.display='block';column.append(cell);group.append(column);
+   place(column,blockTop(7,0)+100,5*metrics.stride);place(cell,blockTop(7,0)+100,5*metrics.stride);
+   ['앞쪽 칸 블록','뒤쪽 칸 블록'].forEach((text,i)=>{const item=document.createElement('div');item.style.cssText='display:block';item.textContent=text;place(item,blockTop(7,0)+100+i*4*metrics.stride,90);cell.append(item)});
+   const side=document.createElement('div');side.style.display='block';side.textContent='옆 칸';column.append(side);place(side,blockTop(7,0)+100+4*metrics.stride,90);
+   const job=await run(node),first=sheetDoc(job,7),col=first.querySelector('[data-display="flex"]');
+   expect(col).not.toBeNull();expect(col.firstElementChild.style.height).toBe(5*metrics.stride+'px');
+   expect(first.textContent).toContain('앞쪽 칸 블록');expect(first.textContent).not.toContain('뒤쪽 칸 블록');expect(first.textContent).toContain('옆 칸');
+  });
+  it('empties a hidden tab panel',async()=>{
+   const node=source(2),panel=document.createElement('div');panel.dataset.display='none';panel.style.display='none';panel.textContent='숨은 탭 내용';node.querySelector('.bn-block-group').append(panel);
+   const job=await run(node);
+   expect(job.html).not.toContain('숨은 탭 내용');expect(job.html).toContain('data-display="none"');
+  });
+  it.each([['unknown position',()=>{}],['float',item=>{item.dataset.float='left'}]])('cuts nothing when a block has an %s',async(_,mark)=>{
+   const node=source(3),odd=document.createElement('div');odd.style.display='block';mark(odd);node.querySelector('.bn-block-group').append(odd);
+   if(!odd.dataset.float)odd.textContent='위치를 모르는 블록';else{odd.textContent='떠 있는 블록';place(odd,blockTop(0,0),50)}
+   const text=sheets(await livePrintJob(node,{paper:'A4'},{count:3,metrics}));
+   text.forEach(sheet=>{expect(sheet).toContain('1쪽 1번 블록');expect(sheet).toContain('3쪽 10번 블록')});
+  });
+  it('counts a top margin that collapses with the first child',async()=>{
+   const node=source(8),group=node.querySelector('.bn-block-group'),item=[...group.children].find(el=>el.textContent.startsWith('6쪽 1번 블록')),wrap=document.createElement('div');
+   wrap.style.cssText='display:block;margin-top:4px';group.insertBefore(wrap,item);wrap.append(item);item.style.marginTop='12px';place(wrap,blockTop(5,0),90);
+   const lead=sheetDoc(await run(node),5).querySelector('.printed-gap');
+   expect(parseFloat(lead.style.height)).toBeCloseTo(blockTop(5,0)-12-60);
+  });
  });
  it('embeds the web fonts the printed copy uses, once per job, because the print page cannot fetch them across origins',async()=>{
   const style=document.createElement('style'),node=source(),math=document.createElement('span'),at=path=>new URL(path,location.href).href;
