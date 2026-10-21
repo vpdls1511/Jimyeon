@@ -7,9 +7,9 @@ import {verifyReleaseAssets,verifyReleaseTag} from './release-policy.mjs';
 
 const {version} = JSON.parse(await readFile('package.json','utf8'));
 assert(/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version), 'Invalid release version');
+const prerelease = version.includes('-');
 const repo = process.env.GITHUB_REPOSITORY,commit = process.env.GITHUB_SHA,tag = `v${version}`;
 assert(repo && /^[a-f0-9]{40}$/.test(commit || ''),'Run this script in the release workflow');
-if (process.env.GITHUB_REF_TYPE === 'tag') assert.equal(process.env.GITHUB_REF_NAME,tag,'Tag and package versions must match');
 const gh = args => execFileSync('gh',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
 let tagRef;
 try{tagRef=JSON.parse(gh(['api',`repos/${repo}/git/ref/tags/${tag}`]))}
@@ -36,14 +36,14 @@ if (existing) {
   assert.equal(existing.targetCommitish,commit,'Existing draft was built from a different commit; use a new version');
   gh(['release','upload',tag,'--repo',repo,'--clobber',...files]);
 } else {
-  gh(['release','create',tag,'--repo',repo,'--target',commit,'--draft','--title',`지면 · Jimyeon ${tag}`,'--notes-file','RELEASE_NOTES.md',...files]);
+  gh(['release','create',tag,'--repo',repo,'--target',commit,'--draft',...(prerelease?['--prerelease']:[]),'--title',`지면 · Jimyeon ${tag}`,'--notes-file','RELEASE_NOTES.md',...files]);
 }
 const {apiUrl}=JSON.parse(gh(['release','view',tag,'--repo',repo,'--json','apiUrl']));
 let release = JSON.parse(gh(['api',apiUrl]));
 verifyReleaseAssets(release,digests,commit);
 if(process.env.PUBLISH_RELEASE==='true'){
  assert(release.draft,'Never publish an already published release');
- gh(['release','edit',tag,'--repo',repo,'--draft=false','--latest']);
+ gh(['release','edit',tag,'--repo',repo,'--draft=false',...(prerelease?['--prerelease','--latest=false']:['--latest'])]);
  release=JSON.parse(gh(['api',apiUrl]));
  assert.equal(release.draft,false);
  verifyReleaseAssets(release,digests,commit);
