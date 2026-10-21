@@ -1,4 +1,4 @@
-import {afterEach,describe,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {BlockNoteEditor} from '@blocknote/core';
 import {schema} from '../src/blocks';
 import {emptyDocument,migrateDocument} from '../src/document';
@@ -78,5 +78,45 @@ describe('PDF uses the live page layout',()=>{
  it('cuts the same live canvas into physical sheets without reflow and emits per-page numbering',async()=>{
   const metrics=pageMetrics({paper:'A4',pageNumber:'left'}),job=await livePrintJob(source(),{title:'제목',paper:'A4',pageNumber:'left'},{count:2,metrics});
   const doc=new DOMParser().parseFromString(job.html,'text/html');expect(doc.querySelectorAll('.printed-sheet')).toHaveLength(2);expect([...doc.querySelectorAll('.printed-page-number')].map(n=>n.textContent)).toEqual(['1/2','2/2']);expect(parseFloat(doc.querySelectorAll('.frozen-document')[1].style.top)).toBeCloseTo(-metrics.height-PAGE_GAP);expect(job.pageCount).toBe(2);expect(job.html).toContain('210mm 297mm');
+ });
+ describe('job size',()=>{
+  // jsdom has no layout, so blocks get the boxes and styles the live editor would report.
+  const metrics=pageMetrics({paper:'A4'}),image='data:image/png;base64,'+'A'.repeat(4000),blockTop=(page,row)=>page*metrics.stride+70+row*95;
+  const place=(node,top,height)=>{const box={x:0,y:top,left:0,top,right:metrics.width,bottom:top+height,width:metrics.width,height};node.getBoundingClientRect=()=>box;node.getClientRects=()=>[box]};
+  beforeEach(()=>{vi.spyOn(window,'getComputedStyle').mockImplementation(node=>{
+   const box=node.getClientRects()[0],values={display:node.tagName==='IMG'?'inline':'block',position:'static',float:'none',transform:'none','overflow-x':'visible','overflow-y':'visible','margin-top':node.style.marginTop||'0px','padding-top':node.style.paddingTop||'0px',height:box?box.height+'px':'auto'};
+   return {fontFamily:'sans-serif',getPropertyValue:key=>values[key]||'initial'};
+  })});
+  afterEach(()=>vi.restoreAllMocks());
+  function source(pages){
+   // Inline display too: jsdom drops the frozen declaration that follows an empty one.
+   const node=document.createElement('div'),group=document.createElement('div');node.className='live-document';node.style.display='block';group.className='bn-block-group';group.style.cssText='display:block;padding-top:10px';node.append(group);document.body.append(node);
+   place(node,0,pages*metrics.stride);place(group,50,pages*metrics.stride-50);
+   const block=(text,top,height)=>{const item=document.createElement('div');item.className='bn-block-outer';item.style.cssText='display:block;margin-top:4px';item.textContent=text;place(item,top,height);group.append(item);return item};
+   for(let page=0;page<pages;page++)for(let row=0;row<10;row++){
+    if(pages>4&&page===4&&row===0)continue;
+    if(pages>4&&page===3&&row===9){block('경계를 넘는 블록',blockTop(3,9),blockTop(4,1)-blockTop(3,9)-5);continue}
+    const item=block(`${page+1}쪽 ${row+1}번 블록 `+'본문 '.repeat(40),blockTop(page,row),90);
+    if(page===2&&row===4){const img=document.createElement('img');img.src=image;item.dataset.url=image;item.append(img)}
+   }
+   return node;
+  }
+  const sheets=job=>[...new DOMParser().parseFromString(job.html,'text/html').querySelectorAll('.printed-sheet')].map(sheet=>sheet.textContent);
+  it('grows with the document instead of repeating the whole document on every page',async()=>{
+   const long=source(30),frozen=(await freezeLiveSource(long,{})).outerHTML.length,job=await livePrintJob(long,{paper:'A4'},{count:30,metrics});
+   const short=await livePrintJob(source(1),{paper:'A4'},{count:1,metrics});
+   expect(job.html.length).toBeLessThan(frozen*1.5);
+   expect(job.html.length/short.html.length).toBeLessThan(45);
+   expect(job.html.split(image)).toHaveLength(2);
+  },20000);
+  it('prints each block on every sheet it reaches, at its live position',async()=>{
+   const job=await livePrintJob(source(30),{paper:'A4'},{count:30,metrics}),text=sheets(job);
+   expect(text.map(sheet=>sheet.includes('경계를 넘는 블록'))).toEqual(text.map((_,index)=>index===3||index===4));
+   expect(text.map(sheet=>sheet.includes('11쪽 4번 블록'))).toEqual(text.map((_,index)=>index===10));
+   const group=new DOMParser().parseFromString(job.html,'text/html').querySelectorAll('.printed-sheet')[5].querySelector('.bn-block-group');
+   expect(group.firstElementChild.className).toBe('printed-gap');
+   expect(parseFloat(group.firstElementChild.style.height)).toBeCloseTo(blockTop(5,0)-4-60);
+   expect(group.children[1].textContent).toContain('6쪽 1번 블록');
+  },20000);
  });
 });

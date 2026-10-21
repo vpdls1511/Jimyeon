@@ -44,7 +44,7 @@ export async function renderPDF(job){
   }finally{await context.close()}
 }
 
-async function bodyJSON(request){let size=0,chunks=[];for await(const chunk of request){size+=chunk.length;if(size>100*1024*1024)throw Error('문서 크기가 너무 큽니다. 첨부 이미지 크기를 줄여 주세요.');chunks.push(chunk)}return JSON.parse(Buffer.concat(chunks).toString('utf8'))}
+async function bodyJSON(request){let size=0,chunks=[];for await(const chunk of request){size+=chunk.length;if(size>100*1024*1024)throw Error('문서가 너무 커서 PDF로 저장할 수 없습니다(최대 100MB). 이미지 크기를 줄이거나 문서를 나누어 주세요.');chunks.push(chunk)}return JSON.parse(Buffer.concat(chunks).toString('utf8'))}
 const server=http.createServer(async(request,response)=>{
   try{
     if(request.method==='POST'&&request.url==='/api/resolve-image'){
