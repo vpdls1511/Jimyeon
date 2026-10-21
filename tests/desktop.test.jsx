@@ -44,7 +44,7 @@ describe('desktop file boundaries',()=>{
 
 describe('desktop autosave',()=>{
  it('avoids writing the same current document to both disk and IndexedDB',async()=>{
-  const db=await openDB('local-notion-editor',1),old={...emptyDocument(),title:'이전 브라우저 저장'},doc={...emptyDocument(),title:'현재 앱 저장'};
+  const db=await openDB('jimyeon',1),old={...emptyDocument(),title:'이전 브라우저 저장'},doc={...emptyDocument(),title:'현재 앱 저장'};
   await db.put('documents',old,'current');window.desktop={saveDraft:vi.fn().mockResolvedValue()};
   await saveDocument(doc);expect(window.desktop.saveDraft).toHaveBeenCalledWith(doc);expect(await db.get('documents','current')).toEqual(old);
   delete window.desktop;await saveDocument(doc);expect(await db.get('documents','current')).toEqual(doc);db.close();
@@ -64,11 +64,11 @@ describe('desktop autosave',()=>{
  it('reports a draft restored from the previous copy without keeping the mark in the document',async()=>{
   const doc={...emptyDocument(),title:'이전 저장본'};window.desktop={loadDraft:vi.fn().mockResolvedValue({...doc,restoredFromPrevious:true})};
   const loaded=await loadDocument();expect(restoredFromPrevious).toBe(true);expect(loaded.title).toBe('이전 저장본');expect(loaded).not.toHaveProperty('restoredFromPrevious');
-  const db=await openDB('local-notion-editor',1);expect(await db.get('documents','current')).not.toHaveProperty('restoredFromPrevious');db.close();
+  const db=await openDB('jimyeon',1);expect(await db.get('documents','current')).not.toHaveProperty('restoredFromPrevious');db.close();
   window.desktop={loadDraft:vi.fn().mockResolvedValue(doc)};await loadDocument();expect(restoredFromPrevious).toBe(false);
  });
  it('opens the disk draft and only turns off revision history when IndexedDB cannot be opened',async()=>{
-  vi.stubGlobal('indexedDB',new IDBFactory());(await openDB('local-notion-editor',2)).close();
+  vi.stubGlobal('indexedDB',new IDBFactory());(await openDB('jimyeon',2)).close();
   vi.resetModules();const storage=await import('../src/storage'),draft={...emptyDocument(),title:'디스크 초안'};
   window.desktop={loadDraft:vi.fn().mockResolvedValue(draft)};expect(await storage.loadDocument()).toMatchObject(draft);
   await expect(storage.revision(draft)).resolves.toBeUndefined();const history=await storage.listRevisions();expect(history).toHaveLength(0);expect(history.unavailable).toBe(true);
