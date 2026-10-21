@@ -25,9 +25,10 @@ function createDraftStore(folder, write = atomicWrite) {
         if (error.code === 'ENOENT') return null;
         try { return await read(previous); }
         catch {
-          // Autosave replaces both drafts next, so keep unreadable copies for manual recovery.
+          // Autosave replaces both drafts next, so move them aside for manual recovery. Renaming
+          // needs no read access and the same folder access as saving: if it fails, saving fails too.
           const stamp = Date.now();
-          for (const file of [current, previous]) await fs.copyFile(file, file.replace(/\.json$/, `.corrupt-${stamp}.json`)).catch(() => {});
+          for (const file of [current, previous]) await fs.rename(file, file.replace(/\.json$/, `.corrupt-${stamp}.json`)).catch(error => { if (error.code !== 'ENOENT') throw error; });
           throw Error('자동 저장 문서를 읽지 못했습니다. 저장된 문서 파일을 가져와 주세요.');
         }
       }

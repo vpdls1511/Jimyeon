@@ -1,6 +1,6 @@
 import {it,expect,vi} from 'vitest';
 import {createRequire} from 'node:module';
-import {mkdtemp,readFile,writeFile,rm,readdir} from 'node:fs/promises';
+import {mkdtemp,readFile,writeFile,rm,readdir,chmod} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {emptyDocument} from '../src/document';
@@ -34,6 +34,24 @@ it('keeps unreadable drafts for manual recovery before autosave replaces them',(
  const files=await readdir(folder),kept=name=>readFile(path.join(folder,files.find(file=>file.startsWith(name+'.corrupt-'))),'utf8');
  expect(files.filter(file=>file.includes('.corrupt-'))).toHaveLength(2);expect(await kept('document')).toBe('{"title":"잘린 문서');expect(await kept('document.previous')).toBe('{"title":"잘린 이전 문서');
  expect(JSON.parse(await readFile(path.join(folder,'document.json'),'utf8')).title).toBe('second');
+}));
+// File modes cannot block reads on Windows or for root.
+const posixUser=process.platform!=='win32'&&process.getuid?.()!==0;
+it.runIf(posixUser)('moves drafts aside even when they cannot be read or copied',()=>fixture(async folder=>{
+ await writeFile(path.join(folder,'document.json'),'{"title":"권한 없는 문서"}');await writeFile(path.join(folder,'document.previous.json'),'{"title":"권한 없는 이전 문서"}');
+ for(const file of ['document.json','document.previous.json'])await chmod(path.join(folder,file),0);
+ const store=createDraftStore(folder);await expect(store.load()).rejects.toThrow('자동 저장 문서를 읽지 못했습니다');
+ await store.save({...emptyDocument(),title:'first'});await store.save({...emptyDocument(),title:'second'});
+ const kept=(await readdir(folder)).filter(file=>file.includes('.corrupt-')).sort();expect(kept).toHaveLength(2);
+ for(const file of kept)await chmod(path.join(folder,file),0o600);
+ expect(await readFile(path.join(folder,kept[0]),'utf8')).toBe('{"title":"권한 없는 문서"}');expect(await readFile(path.join(folder,kept[1]),'utf8')).toBe('{"title":"권한 없는 이전 문서"}');
+}));
+it.runIf(posixUser)('leaves unreadable drafts in place when the folder cannot be written, because saving fails too',()=>fixture(async folder=>{
+ await writeFile(path.join(folder,'document.json'),'broken');await writeFile(path.join(folder,'document.previous.json'),'broken previous');await chmod(folder,0o500);
+ try{
+  const store=createDraftStore(folder);await expect(store.load()).rejects.toThrow();await expect(store.save(emptyDocument())).rejects.toThrow();
+  expect(await readFile(path.join(folder,'document.json'),'utf8')).toBe('broken');expect(await readFile(path.join(folder,'document.previous.json'),'utf8')).toBe('broken previous');
+ }finally{await chmod(folder,0o700)}
 }));
 it('retries a failed save without treating it as successfully cached',()=>fixture(async folder=>{
  const write=vi.fn().mockRejectedValueOnce(Error('disk full')).mockImplementation(atomicWrite),store=createDraftStore(folder,write),doc=emptyDocument();
