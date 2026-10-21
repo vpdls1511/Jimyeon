@@ -58,13 +58,14 @@ const server=http.createServer(async(request,response)=>{
       return;
     }
     if(request.method!=='GET'&&request.method!=='HEAD'){response.writeHead(405);response.end();return}
-    const pathname=decodeURIComponent(new URL(request.url,origin).pathname);
+    let pathname;try{pathname=decodeURIComponent(new URL(request.url,origin).pathname)}catch{response.writeHead(400);response.end();return}
+    if(pathname.includes('\0')){response.writeHead(400);response.end();return}
     const filename=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
     if(!filename.startsWith(root+path.sep)){response.writeHead(403);response.end();return}
     if(!(await stat(filename)).isFile()){response.writeHead(404);response.end();return}
     response.writeHead(200,{'Content-Type':types[path.extname(filename)]||'application/octet-stream','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'});
     response.end(request.method==='HEAD'?undefined:await readFile(filename));
-  }catch(error){if(!response.headersSent)response.writeHead(error.code==='ENOENT'?404:500,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify({error:error.code==='ENOENT'?'파일을 찾을 수 없습니다.':error.message}))}
+  }catch(error){const missing=['ENOENT','ENOTDIR'].includes(error.code);if(!response.headersSent)response.writeHead(missing?404:500,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify({error:missing?'파일을 찾을 수 없습니다.':error.code?'요청을 처리하지 못했습니다.':error.message}))}
 });
 server.listen(port,'127.0.0.1',()=>{console.log(`에디터: ${origin}`);if(process.argv.includes('--open')){const command=process.platform==='darwin'?'open':process.platform==='win32'?'explorer':'xdg-open';spawn(command,[origin],{stdio:'ignore',detached:true}).unref()}});
 async function close(){server.close();await session.close();process.exit(0)}
