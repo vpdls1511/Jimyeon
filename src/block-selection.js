@@ -202,7 +202,7 @@ export const blockSelection=createExtension(({editor})=>{
   const store=createStore({ids:[]});
   return {
     key:'localBlockSelection',
-    runsBefore:['notionBehavior','notionLocalShortcuts'],
+    runsBefore:['editingConventions','localShortcuts'],
     store,
     prosemirrorPlugins:[new Plugin({
       props:{

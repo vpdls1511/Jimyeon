@@ -9,7 +9,6 @@ tmp/
 !.env.example
 *.log
 *.pdf
-*.notion.json
 *.jimyeon
 !examples/*.jimyeon
 # Internal QA notes and screenshots can contain personal documents.

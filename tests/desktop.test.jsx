@@ -4,8 +4,10 @@ import {mkdtemp,readFile,rm,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {openDB} from 'idb';
-import {saveDocument,loadDocument,emptyDocument} from '../src/storage';
-const {bundlePath,validatePDF,serializeDraft,safeName,externalURL,atomicWrite,resolveImage}=createRequire(import.meta.url)('../electron/files.cjs');
+import {IDBFactory} from 'fake-indexeddb';
+import {Blob as NodeBlob} from 'node:buffer';
+import {saveDocument,loadDocument,emptyDocument,restoredFromPrevious,saveFailureMessage,download,MAX_DESKTOP_DOCUMENT_BYTES} from '../src/storage';
+const {bundlePath,validatePDF,serializeDraft,safeName,externalURL,atomicWrite,resolveImage,MAX_DOCUMENT_BYTES}=createRequire(import.meta.url)('../electron/files.cjs');
 
 afterEach(()=>{delete window.desktop;vi.unstubAllGlobals()});
 
@@ -23,7 +25,8 @@ describe('desktop file boundaries',()=>{
  });
  it('validates PDFs and document snapshots before writing',()=>{
   expect(validatePDF({paper:'A4',pageCount:2,html:'<html></html>'}).pageCount).toBe(2);
-  for(const job of [{paper:'A5',pageCount:1,html:''},{paper:'A3',pageCount:301,html:''},{paper:'A4',pageCount:1.5,html:''},{paper:'A4',pageCount:1,html:123}])expect(()=>validatePDF(job)).toThrow();
+  for(const job of [{paper:'A5',pageCount:1,html:''},{paper:'A3',pageCount:301,html:''},{paper:'A4',pageCount:1.5,html:''},{paper:'A4',pageCount:1,html:123}])expect(()=>validatePDF(job)).toThrow('올바른 용지와 페이지 구성이 필요합니다.');
+  expect(()=>validatePDF({paper:'A4',pageCount:1,html:'x'.repeat(100*1024*1024+1)})).toThrow('문서가 너무 커서 PDF로 저장할 수 없습니다');
   expect(JSON.parse(serializeDraft(emptyDocument())).version).toBe(2);
   expect(()=>serializeDraft({blocks:[]})).toThrow();
   expect(safeName('../../my:resume.pdf')).not.toMatch(/[/:]/);
@@ -41,7 +44,7 @@ describe('desktop file boundaries',()=>{
 
 describe('desktop autosave',()=>{
  it('avoids writing the same current document to both disk and IndexedDB',async()=>{
-  const db=await openDB('local-notion-editor',1),old={...emptyDocument(),title:'이전 브라우저 저장'},doc={...emptyDocument(),title:'현재 앱 저장'};
+  const db=await openDB('jimyeon',1),old={...emptyDocument(),title:'이전 브라우저 저장'},doc={...emptyDocument(),title:'현재 앱 저장'};
   await db.put('documents',old,'current');window.desktop={saveDraft:vi.fn().mockResolvedValue()};
   await saveDocument(doc);expect(window.desktop.saveDraft).toHaveBeenCalledWith(doc);expect(await db.get('documents','current')).toEqual(old);
   delete window.desktop;await saveDocument(doc);expect(await db.get('documents','current')).toEqual(doc);db.close();
@@ -58,6 +61,27 @@ describe('desktop autosave',()=>{
   window.desktop={loadDraft:vi.fn().mockResolvedValue(doc)};
   expect(await loadDocument()).toMatchObject(doc);
  });
+ it('reports a draft restored from the previous copy without keeping the mark in the document',async()=>{
+  const doc={...emptyDocument(),title:'이전 저장본'};window.desktop={loadDraft:vi.fn().mockResolvedValue({...doc,restoredFromPrevious:true})};
+  const loaded=await loadDocument();expect(restoredFromPrevious).toBe(true);expect(loaded.title).toBe('이전 저장본');expect(loaded).not.toHaveProperty('restoredFromPrevious');
+  const db=await openDB('jimyeon',1);expect(await db.get('documents','current')).not.toHaveProperty('restoredFromPrevious');db.close();
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(doc)};await loadDocument();expect(restoredFromPrevious).toBe(false);
+ });
+ it('opens the disk draft and only turns off revision history when IndexedDB cannot be opened',async()=>{
+  vi.stubGlobal('indexedDB',new IDBFactory());(await openDB('jimyeon',2)).close();
+  vi.resetModules();const storage=await import('../src/storage'),draft={...emptyDocument(),title:'디스크 초안'};
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(draft)};expect(await storage.loadDocument()).toMatchObject(draft);
+  await expect(storage.revision(draft)).resolves.toBeUndefined();const history=await storage.listRevisions();expect(history).toHaveLength(0);expect(history.unavailable).toBe(true);
+  window.desktop={loadDraft:vi.fn().mockResolvedValue(null)};await expect(storage.loadDocument()).rejects.toThrow();
+ });
+ it('names the 100MB limit when a desktop autosave or document file is too large',async()=>{
+  const generic='저장 공간을 확인하고 문서 파일로 저장해 주세요.',huge={...emptyDocument(),blocks:[{type:'paragraph',content:'a'.repeat(MAX_DOCUMENT_BYTES)}]};
+  expect(saveFailureMessage(huge)).toBe(generic);
+  window.desktop={saveFile:vi.fn()};expect(saveFailureMessage(emptyDocument())).toBe(generic);expect(saveFailureMessage(huge)).toContain('100MB');
+  // jsdom's Blob converts a 100MB string far too slowly; the editor runs on a native Blob.
+  vi.stubGlobal('Blob',NodeBlob);await expect(download('큰 문서.jimyeon',JSON.stringify(huge),'application/json')).rejects.toThrow('100MB');expect(window.desktop.saveFile).not.toHaveBeenCalled();
+ });
+ it('keeps the editor size limit equal to the desktop save limit',()=>{expect(MAX_DESKTOP_DOCUMENT_BYTES).toBe(MAX_DOCUMENT_BYTES)});
  it('propagates disk errors so closing can be canceled',async()=>{
   window.desktop={saveDraft:vi.fn().mockRejectedValue(Error('disk full'))};
   await expect(saveDocument(emptyDocument())).rejects.toThrow('disk full');

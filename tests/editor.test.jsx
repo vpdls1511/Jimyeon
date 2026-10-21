@@ -1,15 +1,15 @@
 import {afterEach,describe,expect,it} from 'vitest';
-import {BlockNoteEditor} from '@blocknote/core';
+import {BlockNoteEditor,getNodeById} from '@blocknote/core';
 import {NodeSelection} from 'prosemirror-state';
 import {schema,safeWebUrl} from '../src/blocks';
-import {notionBehavior} from '../src/notion-behavior';
-import {cloneBlocks,updateSelectedBlocks,setDividerOpacity} from '../src/menus';
+import {editingConventions,blockTypeUpdate} from '../src/editing-conventions';
+import {cloneBlocks,conversions,updateSelectedBlocks,setDividerOpacity} from '../src/menus';
 import {selectBlocks} from '../src/block-selection';
 import {searchExtension,setSearch,replaceSearch,searchKey} from '../src/search';
 import {freezeLiveSource} from '../src/live-print';
 import {saveDocument,loadDocument,emptyDocument,revision,listRevisions} from '../src/storage';
 let editors=[];
-function create(blocks=[{id:'a',type:'paragraph',content:'hello'}],mount=true){const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[notionBehavior,searchExtension],tables:{splitCells:true,cellBackgroundColor:true,cellTextColor:true,headers:true},tabBehavior:'prefer-indent'});const root=document.createElement('div');document.body.append(root);if(mount)editor.mount(root);editors.push({editor,root});return editor}
+function create(blocks=[{id:'a',type:'paragraph',content:'hello'}],mount=true){const editor=BlockNoteEditor.create({schema,initialContent:blocks,extensions:[editingConventions,searchExtension],tables:{splitCells:true,cellBackgroundColor:true,cellTextColor:true,headers:true},tabBehavior:'prefer-indent'});const root=document.createElement('div');document.body.append(root);if(mount)editor.mount(root);editors.push({editor,root});return editor}
 afterEach(()=>{for(const {editor,root} of editors){editor._tiptapEditor.destroy();root.remove()}editors=[]});
 describe('document semantics',()=>{
  it('supports each native editor block and custom content without a page model',()=>{const types=Object.keys(schema.blockSchema);for(const t of ['paragraph','heading','bulletListItem','numberedListItem','checkListItem','toggleListItem','quote','divider','table','codeBlock','image','video','audio','file','column','columnList','callout','equation','bookmark','embed','tableOfContents','button'])expect(types).toContain(t)});
@@ -52,15 +52,55 @@ describe('document semantics',()=>{
 describe('find and replace',()=>{
  it('finds across formatted text and replaces all in one undoable operation',()=>{const e=create([{type:'paragraph',content:[{type:'text',text:'he',styles:{bold:true}},{type:'text',text:'llo hello',styles:{}}]}]);expect(setSearch(e,'hello')).toHaveLength(2);replaceSearch(e,'world',true);expect(e.document[0].content.map(c=>c.text).join('')).toBe('world world');e.undo();expect(e.document[0].content.map(c=>c.text).join('')).toBe('hello hello')});
  it('supports case-sensitive search',()=>{const e=create([{type:'paragraph',content:'Hello hello HELLO'}]);expect(setSearch(e,'hello')).toHaveLength(3);expect(setSearch(e,'hello',true)).toHaveLength(1)});
+ it('keeps match ranges aligned when lowercasing changes the text length',()=>{
+  const e=create([{type:'paragraph',content:'İİ cat dog'}]);expect(setSearch(e,'cat')).toEqual([{from:6,to:9}]);replaceSearch(e,'cow',true);expect(e.document[0].content.map(c=>c.text).join('')).toBe('İİ cow dog');
+  const t=create([{type:'paragraph',content:'İstanbul cat ẞ cat'}]);const found=setSearch(t,'cat');expect(found).toEqual([{from:12,to:15},{from:18,to:21}]);expect(setSearch(t,'İstanbul')).toEqual([{from:3,to:11}]);const g=create([{type:'paragraph',content:'ΟΔΟΣ ΟΔΟΣ'}]);expect(setSearch(g,'ΟΔΟΣ')).toHaveLength(2);
+ });
 });
 describe('local persistence',()=>{
  it('round-trips document layout and data attachments',async()=>{const doc={...emptyDocument(),title:'저장 검증',blocks:[{type:'columnList',children:[{type:'column',children:[{type:'image',props:{url:'data:image/png;base64,YQ=='}}]},{type:'column',children:[{type:'paragraph',content:'한글'}]}]}]};await saveDocument(doc);expect(await loadDocument()).toEqual(doc)});
  it('keeps recoverable snapshots',async()=>{const doc=emptyDocument();await revision(doc);expect((await listRevisions())[0].doc).toEqual(doc)});
  it('rejects executable and local-file embed URLs',()=>{expect(safeWebUrl('javascript:alert(1)')).toBeNull();expect(safeWebUrl('file:///etc/passwd')).toBeNull();expect(safeWebUrl('https://example.com')).toBe('https://example.com/')});
 });
-describe('Notion input conventions through the actual input-rule pipeline',()=>{
+describe('Input conventions through the actual input-rule pipeline',()=>{
  function type(e,text){for(const char of text){const view=e._tiptapEditor.view,{from,to}=view.state.selection;const handled=view.someProp('handleTextInput',handler=>handler(view,from,to,char));if(!handled)view.dispatch(view.state.tr.insertText(char,from,to))}}
  for(const [input,typeName,props] of [['- ','bulletListItem',{}],['[]','checkListItem',{}],['> ','toggleListItem',{}],['" ','quote',{}],['# ','heading',{level:1}],['#### ','heading',{level:4}],['1. ','numberedListItem',{}],['---','divider',{textColor:'default'}]])it(`${input} becomes ${typeName}`,()=>{const e=create([{id:'a',type:'paragraph'}]);e.setTextCursorPosition('a','start');type(e,input);expect(e.document[0].type).toBe(typeName);expect(e.document[0].props).toMatchObject(props)});
  it('keeps tab panels as document children with independent content',()=>{const e=create([{type:'tabs',children:[{type:'tabPanel',props:{label:'One'},children:[{type:'paragraph',content:'A'}]},{type:'tabPanel',props:{label:'Two'},children:[{type:'paragraph',content:'B'}]}]}],false);expect(e.document[0].children[1].children[0].content[0].text).toBe('B')});
 
+});
+describe('block type shortcuts through the editor keymap',()=>{
+ // jsdom is not a Mac, so Mod is Ctrl and both Mod-Alt and Mod-Shift numbers are bound.
+ const press=(e,key,modifiers)=>{const view=e.prosemirrorView,event=new KeyboardEvent('keydown',{key,code:'Digit'+key,ctrlKey:true,...modifiers,bubbles:true,cancelable:true});view.someProp('handleKeyDown',handler=>handler(view,event))};
+ const pressAll=e=>{for(const key of '012345678')for(const modifiers of [{altKey:true},{shiftKey:true}])press(e,key,modifiers)};
+ it('still converts a text block',()=>{
+  const e=create();e.setTextCursorPosition('a','end');press(e,'1',{altKey:true});expect(e.getBlock('a')).toMatchObject({type:'heading',props:{level:1}});
+  press(e,'5',{shiftKey:true});expect(e.getBlock('a').type).toBe('bulletListItem');expect(e.getBlock('a').content[0].text).toBe('hello');
+ });
+ it('turns a toggle heading into a plain heading with the shortcut',()=>{
+  const e=create([{id:'h',type:'heading',props:{level:1,isToggleable:true},content:'hi'}]);e.setTextCursorPosition('h','end');press(e,'2',{altKey:true});
+  expect(e.getBlock('h').props).toMatchObject({level:2,isToggleable:false});
+ });
+ it('applies the block menu conversion entries so heading changes state the toggle',()=>{
+  const entry=name=>{const [,type,props]=conversions.find(c=>c[0]===name);return blockTypeUpdate(type,props)};
+  for(const [name,expected] of [['제목 2',{type:'heading',props:{level:2,isToggleable:false}}],['토글 제목 2',{type:'heading',props:{level:2,isToggleable:true}}],['텍스트',{type:'paragraph'}]]){
+   const e=create([{id:'h',type:'heading',props:{level:1,isToggleable:true},content:'hi'}]);updateSelectedBlocks(e,e.getBlock('h'),entry(name));
+   expect(e.getBlock('h')).toMatchObject(expected);
+  }
+  const e=create([{id:'p',type:'heading',props:{level:2},content:'hi'}]);updateSelectedBlocks(e,e.getBlock('p'),entry('토글 제목 1'));expect(e.getBlock('p').props).toMatchObject({level:1,isToggleable:true});
+ });
+ it('still converts a code block, whose content is plain text',()=>{
+  for(const [key,modifiers,type] of [['1',{altKey:true},'heading'],['0',{altKey:true},'paragraph'],['5',{shiftKey:true},'bulletListItem']]){
+   const e=create([{id:'c',type:'codeBlock',content:'let x=1'}]);e.setTextCursorPosition('c','end');press(e,key,modifiers);
+   expect(e.getBlock('c').type).toBe(type);expect(e.getBlock('c').content.map(c=>c.text).join('')).toBe('let x=1');
+  }
+ });
+ it('keeps a table when the cursor is in one of its cells',()=>{
+  const e=create([{id:'t',type:'table',content:{type:'tableContent',rows:[{cells:['A','B']}]}}]);e.setTextCursorPosition('t','start');expect(e.getTextCursorPosition().block.id).toBe('t');
+  const before=e.document;pressAll(e);expect(e.document).toEqual(before);
+ });
+ it('keeps a selected image',()=>{
+  const e=create([{id:'i',type:'image',props:{url:'data:image/png;base64,YQ=='}}]),view=e.prosemirrorView;
+  view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc,getNodeById('i',view.state.doc).posBeforeNode+1)));expect(e.getTextCursorPosition().block.id).toBe('i');
+  const before=e.document;pressAll(e);expect(e.document).toEqual(before);
+ });
 });

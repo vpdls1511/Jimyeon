@@ -12,14 +12,15 @@ function bundlePath(root, address) {
 }
 
 function validatePDF(job) {
-  if (!job || !['A4', 'A3'].includes(job.paper) || typeof job.html !== 'string' ||
-      Buffer.byteLength(job.html) > MAX_DOCUMENT_BYTES || !Number.isInteger(job.pageCount) ||
+  if (!job || !['A4', 'A3'].includes(job.paper) || typeof job.html !== 'string' || !Number.isInteger(job.pageCount) ||
       job.pageCount < 1 || job.pageCount > 300) throw Error('올바른 용지와 페이지 구성이 필요합니다.');
+  if (Buffer.byteLength(job.html) > MAX_DOCUMENT_BYTES) throw Error('문서가 너무 커서 PDF로 저장할 수 없습니다(최대 100MB). 이미지 크기를 줄이거나 문서를 나누어 주세요.');
   return job;
 }
 
 function serializeDraft(doc) {
-  if (!doc || doc.format !== 'local-notion-editor' || doc.version !== 2 || !Array.isArray(doc.blocks)) {
+  // Drafts saved by earlier versions keep their previous identifier (LEGACY_ID in src/document.js).
+  if (!doc || !['jimyeon', 'local-notion-editor'].includes(doc.format) || doc.version !== 2 || !Array.isArray(doc.blocks)) {
     throw Error('올바른 편집 문서가 아닙니다.');
   }
   const text = JSON.stringify(doc);
